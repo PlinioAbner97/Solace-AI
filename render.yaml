@@ -1,0 +1,42 @@
+services:
+  # ── BACKEND ──────────────────────────────────────────────────────────────────
+  - type: web
+    name: solace-ai-backend
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false          # Render will prompt you to fill this in
+      - key: FRONTEND_URL
+        fromService:
+          name: solace-ai-frontend
+          type: web
+          property: host
+
+  # ── FRONTEND ─────────────────────────────────────────────────────────────────
+  - type: web
+    name: solace-ai-frontend
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: REACT_APP_API_URL
+        fromService:
+          name: solace-ai-backend
+          type: web
+          property: host
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

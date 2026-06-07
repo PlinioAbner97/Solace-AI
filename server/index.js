@@ -270,6 +270,9 @@ Only include genuinely NEW facts not already in the existing list. Empty array i
   }
 });
 
+// ── HEALTH CHECK ────────────────────────────────────────────────────────────
+app.get("/api/health", (req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
+
 // ── CATCH-ALL ─────────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res) => {

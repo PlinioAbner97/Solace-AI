@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+server/node_modules/
+
+# Environment variables — NEVER commit these
+.env
+server/.env
+
+# Database — contains user data
+server/solace.db
+server/solace.db-shm
+server/solace.db-wal
+
+# React build output
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

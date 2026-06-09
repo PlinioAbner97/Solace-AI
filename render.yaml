@@ -1,5 +1,4 @@
 services:
-  # ── BACKEND ──────────────────────────────────────────────────────────────────
   - type: web
     name: solace-ai-backend
     runtime: node
@@ -15,15 +14,15 @@ services:
         value: 10000
       - key: JWT_SECRET
         generateValue: true
-      - key: GEMINI_API_KEY
-        sync: false          # Render will prompt you to fill this in
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: CHAT_MODEL
+        value: google/gemini-2.0-flash-exp:free
+      - key: EXTRACT_MODEL
+        value: meta-llama/llama-3.3-70b-instruct:free
       - key: FRONTEND_URL
-        fromService:
-          name: solace-ai-frontend
-          type: web
-          property: host
+        sync: false
 
-  # ── FRONTEND ─────────────────────────────────────────────────────────────────
   - type: web
     name: solace-ai-frontend
     runtime: static
@@ -32,10 +31,7 @@ services:
     pullRequestPreviewsEnabled: false
     envVars:
       - key: REACT_APP_API_URL
-        fromService:
-          name: solace-ai-backend
-          type: web
-          property: host
+        sync: false
     routes:
       - type: rewrite
         source: /*

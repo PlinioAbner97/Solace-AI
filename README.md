@@ -2,167 +2,124 @@
 
 > The AI companion that grows with you — remembers your story, your feelings, your goals.
 
-Built with **React**, **Express**, **SQLite**, and **Google Gemini 1.5 Flash** (free, no limits on conversation length).
+Built with **React**, **Express**, **SQLite**, and **OpenRouter** (free AI — no credit card needed).
 
 ---
 
-## Features
+## Quick Start
 
-- 🔐 **Auth** — sign up / sign in with secure JWT sessions
-- 🧑‍🤝‍🧑 **16 unique companions** — 8 female, 8 male — each with their own name, personality, and emoji
-- 🧠 **Long-term memory** — facts, mood history, and milestones extracted automatically from every chat
-- 📖 **Life Journal** — a visual timeline of your story
-- 💬 **Unlimited chats** — Gemini 1.5 Flash free tier: 1,500 requests/day, no message limits
-- 🎭 **4 companion modes** — Friend, Coach, Deep, Support
-- 🌱 **Profile** — tell your companion about yourself
+### 1. Get a FREE OpenRouter API key (2 minutes)
 
----
+1. Go to → **https://openrouter.ai** → Sign Up (just email, no credit card)
+2. Go to → **https://openrouter.ai/keys** → click **"Create Key"**
+3. Copy the key — it looks like `sk-or-v1-...`
 
-## Tech Stack
+Free tier gives you access to **Gemini 2.0 Flash, Llama 3.3 70B, DeepSeek** and more — unlimited conversation length.
 
-| Layer     | Tech                              |
-|-----------|-----------------------------------|
-| Frontend  | React 18, React Router v6         |
-| Backend   | Node.js, Express                  |
-| Database  | SQLite via better-sqlite3         |
-| AI        | Google Gemini 1.5 Flash (FREE)    |
-| Auth      | bcryptjs + JWT                    |
-| Deploy    | Render / Railway / Fly.io / VPS   |
-
----
-
-## Local Development
-
-### 1. Clone the repo
+### 2. Clone & install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/solace-ai.git
-cd solace-ai
+git clone https://github.com/PlinioAbner97/Solace-AI.git
+cd Solace-AI
+npm run install:all
 ```
 
-### 2. Get a FREE Gemini API key
-
-Go to → **https://aistudio.google.com/app/apikey**  
-Click "Create API Key". It's completely free — no credit card required.  
-Free tier: **1,500 requests/day, 1,000,000 tokens/min**.
-
-### 3. Configure environment variables
+### 3. Set environment variables
 
 ```bash
-# Frontend
-cp .env.example .env
-
-# Backend
 cp server/.env.example server/.env
 ```
 
 Edit `server/.env`:
 ```
-GEMINI_API_KEY=your_key_here
-JWT_SECRET=any_long_random_string_here
+OPENROUTER_API_KEY=sk-or-v1-your-key-here
+JWT_SECRET=any-long-random-string
 ```
 
-### 4. Install dependencies
-
-```bash
-npm run install:all
-```
-
-### 5. Start both servers
+### 4. Run locally
 
 ```bash
 npm run dev
 ```
 
-- Frontend: http://localhost:3000  
-- Backend: http://localhost:3001  
+- Frontend: http://localhost:3000
+- Backend:  http://localhost:3001
 
 ---
 
-## Deploying to Production
+## Deploy to Render (free hosting)
 
-### Option A — Render (recommended, free tier available)
+### Step 1 — Push to GitHub
+Your code is already at: https://github.com/PlinioAbner97/Solace-AI
 
-1. Push your repo to GitHub
-2. Go to **https://render.com** → New Web Service
-3. Connect your GitHub repo
-4. Set **Root Directory** to `server`
-5. Set **Build Command**: `npm install`
-6. Set **Start Command**: `node index.js`
-7. Add environment variables:
-   - `GEMINI_API_KEY` = your key
-   - `JWT_SECRET` = your secret
-   - `NODE_ENV` = production
-   - `FRONTEND_URL` = your Render frontend URL
-8. Deploy a second service for the React frontend (Static Site):
-   - **Build Command**: `npm install && npm run build`
-   - **Publish Directory**: `build`
-   - Add env var: `REACT_APP_API_URL` = your backend Render URL
+### Step 2 — Deploy backend
+1. Go to **https://dashboard.render.com** → New + → **Web Service**
+2. Connect repo **PlinioAbner97/Solace-AI**
+3. Settings:
+   - **Root Directory:** `server`
+   - **Build Command:** `npm install`
+   - **Start Command:** `node index.js`
+   - **Plan:** Free
+4. Environment Variables:
+   - `OPENROUTER_API_KEY` = your key from openrouter.ai
+   - `JWT_SECRET` = any long random string
+   - `NODE_ENV` = `production`
+   - `FRONTEND_URL` = (fill in after frontend deploys)
+5. Click **Deploy** — note your backend URL e.g. `https://solace-ai-backend.onrender.com`
 
-### Option B — Railway
+### Step 3 — Deploy frontend
+1. New + → **Static Site**
+2. Connect same repo **PlinioAbner97/Solace-AI**
+3. Settings:
+   - **Build Command:** `npm install && npm run build`
+   - **Publish Directory:** `build`
+4. Environment Variables:
+   - `REACT_APP_API_URL` = your backend URL from Step 2
+5. Click **Deploy**
 
-```bash
-npm install -g @railway/cli
-railway login
-railway init
-railway up
-```
-Set env vars in the Railway dashboard.
-
-### Option C — Single server (backend serves frontend)
-
-```bash
-npm run build          # builds React into /build
-cd server
-NODE_ENV=production node index.js
-```
-The Express server will serve the React app at the root and handle API routes at `/api/*`.
+### Step 4 — Connect them
+Go back to your backend service → Environment → update `FRONTEND_URL` to your frontend URL.
 
 ---
 
 ## Project Structure
 
 ```
-solace-ai/
-├── public/              # Static HTML
+Solace-AI/
+├── public/              HTML shell
 ├── src/
-│   ├── App.js           # Router + auth state
-│   ├── index.js         # React entry
+│   ├── App.js           Router + auth state
+│   ├── index.js         React entry
 │   ├── pages/
-│   │   ├── Home.js          # Landing page
-│   │   ├── Auth.js          # Sign in / Sign up
-│   │   ├── PickCompanion.js # Companion selection
-│   │   └── AppShell.js      # Main app (chat, memory, journal, profile)
+│   │   ├── Home.js          Landing page
+│   │   ├── Auth.js          Sign in / Sign up
+│   │   ├── PickCompanion.js Companion selection (8 female, 8 male)
+│   │   └── AppShell.js      Chat, Memory, Journal, Profile
 │   └── utils/
-│       ├── api.js           # All backend API calls
-│       ├── companions.js    # Companion data + system prompt builder
-│       └── styles.js        # All CSS
+│       ├── api.js           All API calls
+│       ├── companions.js    16 companions + system prompt builder
+│       └── styles.js        All CSS
 ├── server/
-│   ├── index.js         # Express server (auth, memory, messages, Gemini proxy)
+│   ├── index.js         Express + OpenRouter + SQLite
 │   ├── package.json
-│   ├── .env.example
-│   └── solace.db        # SQLite database (auto-created, gitignored)
+│   └── .env.example
+├── render.yaml          One-click Render deploy
 ├── package.json
-├── .env.example
-├── .gitignore
 └── README.md
 ```
 
 ---
 
-## Why Gemini instead of other APIs?
+## AI Models (all free via OpenRouter)
 
-| Provider      | Free tier            | Rate limits                  |
-|---------------|----------------------|------------------------------|
-| **Gemini 1.5 Flash** | ✅ Always free  | 1,500 req/day · 1M tok/min  |
-| OpenAI GPT-4  | ❌ Paid only         | —                            |
-| Anthropic     | ❌ Paid only         | —                            |
-| Cohere        | ✅ Limited free      | 1,000 req/month              |
+| Model | Used for |
+|-------|----------|
+| `google/gemini-2.0-flash-exp:free` | Main companion chat |
+| `meta-llama/llama-3.3-70b-instruct:free` | Memory extraction |
 
-Gemini 1.5 Flash is fast, smart, and genuinely free with limits high enough for a growing app.
+Free tier: 20 requests/minute, 200 requests/day. Users can chat as long as they want.
 
 ---
 
 ## License
-
-MIT — free to use, modify and deploy.
+MIT

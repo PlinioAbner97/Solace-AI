@@ -3,7 +3,7 @@ const cors     = require('cors');
 const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');
 const Database = require('better-sqlite3');
-const fetch    = require('node-fetch');
+// Using built-in fetch (Node 20+)
 const path     = require('path');
 require('dotenv').config();
 
@@ -210,9 +210,11 @@ async function openRouterChat(model, messages, systemPrompt, maxTokens = 700) {
   });
 
   const data = await response.json();
+  console.log('OpenRouter status:', response.status);
+  console.log('OpenRouter response:', JSON.stringify(data).slice(0, 500));
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
   const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error('No response from AI');
+  if (!text) throw new Error('No response from AI - full response: ' + JSON.stringify(data).slice(0, 300));
   return text.trim();
 }
 
@@ -223,7 +225,7 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     const reply = await openRouterChat(CHAT_MODEL, messages, systemPrompt, 700);
     res.json({ reply });
   } catch (e) {
-    console.error('Chat error:', e.message);
+    console.error('Chat error full:', e);
     res.status(500).json({ error: e.message || 'AI service error. Please try again.' });
   }
 });

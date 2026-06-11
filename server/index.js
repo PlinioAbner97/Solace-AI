@@ -51,18 +51,28 @@ db.exec(`
 `);
 
 // ── MIDDLEWARE ────────────────────────────────────────────────────────────────
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',');
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || allowedOrigins.some(o => origin.startsWith(o.trim()))) cb(null, true);
-    else cb(new Error('CORS blocked: ' + origin));
-  }
+    // Allow requests with no origin (mobile, curl, server-to-server)
+    if (!origin) return cb(null, true);
+    // Allow localhost (dev) and all onrender.com subdomains
+    if (
+      origin.includes('localhost') ||
+      origin.includes('onrender.com') ||
+      origin === (process.env.FRONTEND_URL || '')
+    ) return cb(null, true);
+    // Allow any origin in comma-separated FRONTEND_URL list
+    const allowed = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim());
+    if (allowed.some(o => origin.startsWith(o))) return cb(null, true);
+    // Block everything else
+    console.warn('CORS blocked:', origin);
+    cb(null, false);
+  },
+  credentials: true
 }));
 app.use(express.json({ limit: '4mb' }));
 
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../build')));
-}
+// Frontend is served separately as a static site on Render
 
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -238,11 +248,5 @@ Facts must be personal and useful for a companion. Only include genuinely NEW fa
   }
 });
 
-// ── PRODUCTION CATCH-ALL ──────────────────────────────────────────────────────
-if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../build/index.html'));
-  });
-}
 
 app.listen(PORT, () => console.log(`✦ Solace API running on http://localhost:${PORT}`));

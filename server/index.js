@@ -2,126 +2,143 @@ const express  = require('express');
 const cors     = require('cors');
 const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');
-const Database = require('better-sqlite3');
 const path     = require('path');
-const fs       = require('fs');
 require('dotenv').config();
 
 const app    = express();
 const PORT   = process.env.PORT || 3001;
-const SECRET = process.env.JWT_SECRET || 'solace-dev-secret-change-in-prod';
+const SECRET = process.env.JWT_SECRET || 'solace-dev-secret';
 
 const OPENROUTER_KEY  = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_URL  = 'https://openrouter.ai/api/v1/chat/completions';
 const CHAT_MODEL      = process.env.CHAT_MODEL    || 'google/gemini-2.0-flash-exp:free';
 const EXTRACT_MODEL   = process.env.EXTRACT_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
 
-// ── DATABASE ──────────────────────────────────────────────────────────────────
-// Render free tier has no persistent disk, so we use /tmp which survives restarts
-// but NOT redeploys. For true persistence, set DB_PATH to a Render Disk mount path.
-const DB_PATH = process.env.DB_PATH || '/tmp/solace.db';
-console.log('DB path:', DB_PATH);
+// ── DATABASE — uses Turso (free cloud SQLite) if env vars set, else local file ─
+let db;
+async function initDB() {
+  if (process.env.TURSO_DB_URL && process.env.TURSO_DB_TOKEN) {
+    // Cloud SQLite via Turso — persists across all redeploys, free tier = 500MB
+    const { createClient } = require('@libsql/client');
+    const client = createClient({
+      url:       process.env.TURSO_DB_URL,
+      authToken: process.env.TURSO_DB_TOKEN,
+    });
+    await client.execute(`CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL)`);
+    await client.execute(`CREATE TABLE IF NOT EXISTS user_memory (
+      user_id INTEGER PRIMARY KEY, profile TEXT DEFAULT '{}',
+      facts TEXT DEFAULT '[]', mood_history TEXT DEFAULT '[]',
+      timeline TEXT DEFAULT '[]', updated_at TEXT)`);
+    await client.execute(`CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+      role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL)`);
+    console.log('✦ Using Turso cloud database');
+    return { type: 'turso', client };
+  } else {
+    // Local SQLite — fine for dev, use /tmp on Render (resets on redeploy)
+    const Database = require('better-sqlite3');
+    const DB_PATH  = process.env.DB_PATH || '/tmp/solace.db';
+    const client   = new Database(DB_PATH);
+    client.pragma('journal_mode = WAL');
+    client.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS user_memory (
+        user_id INTEGER PRIMARY KEY, profile TEXT DEFAULT '{}',
+        facts TEXT DEFAULT '[]', mood_history TEXT DEFAULT '[]',
+        timeline TEXT DEFAULT '[]', updated_at TEXT);
+      CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+        role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL);
+    `);
+    console.log('✦ Using local SQLite:', DB_PATH);
+    return { type: 'sqlite', client };
+  }
+}
 
-const db = new Database(DB_PATH);
-db.pragma('journal_mode = WAL');
+// ── DB QUERY WRAPPER — same API for both Turso and SQLite ─────────────────────
+function makeDB(store) {
+  if (store.type === 'turso') {
+    const c = store.client;
+    return {
+      async get(sql, ...args)    { const r = await c.execute({sql, args: args.flat()}); return r.rows[0] || null; },
+      async all(sql, ...args)    { const r = await c.execute({sql, args: args.flat()}); return r.rows; },
+      async run(sql, ...args)    { return c.execute({sql, args: args.flat()}); },
+      async lastId(sql, ...args) { const r = await c.execute({sql, args: args.flat()}); return Number(r.lastInsertRowid); },
+    };
+  } else {
+    const c = store.client;
+    return {
+      async get(sql, ...args)    { return c.prepare(sql).get(...args.flat()) || null; },
+      async all(sql, ...args)    { return c.prepare(sql).all(...args.flat()); },
+      async run(sql, ...args)    { return c.prepare(sql).run(...args.flat()); },
+      async lastId(sql, ...args) { return c.prepare(sql).run(...args.flat()).lastInsertRowid; },
+    };
+  }
+}
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    name          TEXT    NOT NULL,
-    email         TEXT    UNIQUE NOT NULL,
-    password_hash TEXT    NOT NULL,
-    created_at    TEXT    NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS user_memory (
-    user_id      INTEGER PRIMARY KEY,
-    profile      TEXT DEFAULT '{}',
-    facts        TEXT DEFAULT '[]',
-    mood_history TEXT DEFAULT '[]',
-    timeline     TEXT DEFAULT '[]',
-    updated_at   TEXT,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
-  CREATE TABLE IF NOT EXISTS messages (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id    INTEGER NOT NULL,
-    role       TEXT    NOT NULL,
-    content    TEXT    NOT NULL,
-    created_at TEXT    NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
-`);
+let DB;
 
 // ── MIDDLEWARE ────────────────────────────────────────────────────────────────
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
-    if (
-      origin.includes('localhost') ||
-      origin.includes('onrender.com') ||
-      origin.includes('render.com')
-    ) return cb(null, true);
+    if (origin.includes('localhost') || origin.includes('onrender.com')) return cb(null, true);
     const allowed = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
     if (allowed.some(o => origin.startsWith(o))) return cb(null, true);
-    console.warn('CORS blocked:', origin);
     cb(null, false);
   },
   credentials: true
 }));
 app.use(express.json({ limit: '4mb' }));
 
-const authMiddleware = (req, res, next) => {
+const auth = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try { req.user = jwt.verify(token, SECRET); next(); }
   catch { res.status(401).json({ error: 'Invalid or expired token' }); }
 };
 
-const today = () =>
-  new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric', day: 'numeric' });
+const today = () => new Date().toLocaleDateString('en-US', { month:'long', year:'numeric', day:'numeric' });
 
-// ── HEALTH + DEBUG ────────────────────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
-  const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
+// ── HEALTH ────────────────────────────────────────────────────────────────────
+app.get('/api/health', async (req, res) => {
+  const row = await DB.get('SELECT COUNT(*) as c FROM users');
   res.json({
     status: 'ok',
     time: new Date().toISOString(),
-    db: DB_PATH,
-    users: userCount,
+    users: Number(row?.c || 0),
     hasOpenRouterKey: !!OPENROUTER_KEY,
-    keyPrefix: OPENROUTER_KEY ? OPENROUTER_KEY.slice(0, 12) + '...' : 'NOT SET',
+    keyPrefix: OPENROUTER_KEY ? OPENROUTER_KEY.slice(0,12)+'...' : 'NOT SET',
     chatModel: CHAT_MODEL,
+    db: process.env.TURSO_DB_URL ? 'turso-cloud' : 'sqlite-local',
   });
 });
 
-// ── AI TEST (no auth needed — for debugging) ──────────────────────────────────
+// ── AI TEST ───────────────────────────────────────────────────────────────────
 app.get('/api/test-ai', async (req, res) => {
-  if (!OPENROUTER_KEY) {
-    return res.json({ ok: false, error: 'OPENROUTER_API_KEY is not set on the server' });
-  }
+  if (!OPENROUTER_KEY) return res.json({ ok: false, error: 'OPENROUTER_API_KEY not set' });
   try {
     const response = await fetch(OPENROUTER_URL, {
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${OPENROUTER_KEY}`,
-        'HTTP-Referer':  process.env.FRONTEND_URL || 'https://solace-ai-1-atkq.onrender.com',
+        'HTTP-Referer':  'https://solace-ai-1-atkq.onrender.com',
         'X-Title':       'Solace AI',
       },
       body: JSON.stringify({
-        model: CHAT_MODEL,
-        max_tokens: 50,
-        messages: [{ role: 'user', content: 'Say "AI is working!" and nothing else.' }],
+        model: CHAT_MODEL, max_tokens: 30,
+        messages: [{ role: 'user', content: 'Reply with exactly: AI is working!' }],
       }),
     });
     const data = await response.json();
-    console.log('AI test response:', JSON.stringify(data));
     const text = data.choices?.[0]?.message?.content;
-    if (text) {
-      res.json({ ok: true, reply: text, model: CHAT_MODEL });
-    } else {
-      res.json({ ok: false, error: data.error?.message || 'No content', raw: data });
-    }
+    if (text) return res.json({ ok: true, reply: text, model: CHAT_MODEL });
+    res.json({ ok: false, raw: data });
   } catch (e) {
     res.json({ ok: false, error: e.message });
   }
@@ -132,43 +149,38 @@ app.post('/api/auth/signup', async (req, res) => {
   const { name, email, password } = req.body;
   if (!name || !email || !password) return res.status(400).json({ error: 'All fields required.' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
-  if (db.prepare('SELECT id FROM users WHERE email = ?').get(email))
+  if (await DB.get('SELECT id FROM users WHERE email = ?', email))
     return res.status(409).json({ error: 'An account with this email already exists.' });
-
-  const hash   = await bcrypt.hash(password, 10);
-  const result = db.prepare('INSERT INTO users (name, email, password_hash, created_at) VALUES (?,?,?,?)').run(name, email, hash, today());
-  const uid    = result.lastInsertRowid;
-
-  const timeline = JSON.stringify([{ date: today(), content: `${name} began their journey with Solace`, detail: 'First day' }]);
-  db.prepare('INSERT INTO user_memory (user_id, timeline, updated_at) VALUES (?,?,?)').run(uid, timeline, today());
-
+  const hash = await bcrypt.hash(password, 10);
+  const uid  = await DB.lastId('INSERT INTO users (name,email,password_hash,created_at) VALUES (?,?,?,?)', name, email, hash, today());
+  const tl   = JSON.stringify([{ date: today(), content: `${name} began their journey with Solace`, detail: 'First day' }]);
+  await DB.run('INSERT INTO user_memory (user_id,timeline,updated_at) VALUES (?,?,?)', uid, tl, today());
   const token = jwt.sign({ id: uid, email, name }, SECRET, { expiresIn: '30d' });
-  const user  = db.prepare('SELECT id, name, email, created_at FROM users WHERE id = ?').get(uid);
-  console.log('New user signed up:', email);
-  res.json({ token, user: { ...user, createdAt: user.created_at } });
+  console.log('Signup:', email);
+  res.json({ token, user: { id: uid, name, email, createdAt: today() } });
 });
 
 app.post('/api/auth/signin', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'All fields required.' });
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  const user = await DB.get('SELECT * FROM users WHERE email = ?', email);
   if (!user || !(await bcrypt.compare(password, user.password_hash)))
     return res.status(401).json({ error: 'Incorrect email or password.' });
   const token = jwt.sign({ id: user.id, email: user.email, name: user.name }, SECRET, { expiresIn: '30d' });
-  console.log('User signed in:', email);
+  console.log('Signin:', email);
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, createdAt: user.created_at } });
 });
 
-app.get('/api/auth/me', authMiddleware, (req, res) => {
-  const user = db.prepare('SELECT id, name, email, created_at FROM users WHERE id = ?').get(req.user.id);
+app.get('/api/auth/me', auth, async (req, res) => {
+  const user = await DB.get('SELECT id,name,email,created_at FROM users WHERE id = ?', req.user.id);
   if (!user) return res.status(404).json({ error: 'Not found' });
   res.json({ user: { ...user, createdAt: user.created_at } });
 });
 
 // ── MEMORY ────────────────────────────────────────────────────────────────────
-app.get('/api/memory', authMiddleware, (req, res) => {
-  const row = db.prepare('SELECT * FROM user_memory WHERE user_id = ?').get(req.user.id);
-  if (!row) return res.json({ profile: {}, facts: [], moodHistory: [], timeline: [] });
+app.get('/api/memory', auth, async (req, res) => {
+  const row = await DB.get('SELECT * FROM user_memory WHERE user_id = ?', req.user.id);
+  if (!row) return res.json({ profile:{}, facts:[], moodHistory:[], timeline:[] });
   res.json({
     profile:     JSON.parse(row.profile      || '{}'),
     facts:       JSON.parse(row.facts        || '[]'),
@@ -177,90 +189,70 @@ app.get('/api/memory', authMiddleware, (req, res) => {
   });
 });
 
-app.put('/api/memory', authMiddleware, (req, res) => {
+app.put('/api/memory', auth, async (req, res) => {
   const { profile, facts, moodHistory, timeline } = req.body;
-  db.prepare(`
-    INSERT INTO user_memory (user_id, profile, facts, mood_history, timeline, updated_at)
-    VALUES (?,?,?,?,?,?)
-    ON CONFLICT(user_id) DO UPDATE SET
-      profile=excluded.profile, facts=excluded.facts,
-      mood_history=excluded.mood_history, timeline=excluded.timeline,
-      updated_at=excluded.updated_at
-  `).run(req.user.id,
-    JSON.stringify(profile||{}), JSON.stringify(facts||[]),
-    JSON.stringify(moodHistory||[]), JSON.stringify(timeline||[]),
-    new Date().toISOString());
+  await DB.run(`INSERT INTO user_memory (user_id,profile,facts,mood_history,timeline,updated_at) VALUES (?,?,?,?,?,?)
+    ON CONFLICT(user_id) DO UPDATE SET profile=excluded.profile,facts=excluded.facts,
+    mood_history=excluded.mood_history,timeline=excluded.timeline,updated_at=excluded.updated_at`,
+    req.user.id, JSON.stringify(profile||{}), JSON.stringify(facts||[]),
+    JSON.stringify(moodHistory||[]), JSON.stringify(timeline||[]), new Date().toISOString());
   res.json({ ok: true });
 });
 
-app.put('/api/memory/profile', authMiddleware, (req, res) => {
+app.put('/api/memory/profile', auth, async (req, res) => {
   const { profile } = req.body;
-  const row     = db.prepare('SELECT profile FROM user_memory WHERE user_id = ?').get(req.user.id);
+  const row     = await DB.get('SELECT profile FROM user_memory WHERE user_id = ?', req.user.id);
   const current = row ? JSON.parse(row.profile || '{}') : {};
   const updated = { ...current, ...profile };
-  db.prepare('UPDATE user_memory SET profile=?, updated_at=? WHERE user_id=?')
-    .run(JSON.stringify(updated), new Date().toISOString(), req.user.id);
+  await DB.run('UPDATE user_memory SET profile=?,updated_at=? WHERE user_id=?',
+    JSON.stringify(updated), new Date().toISOString(), req.user.id);
   res.json({ ok: true, profile: updated });
 });
 
 // ── MESSAGES ──────────────────────────────────────────────────────────────────
-app.get('/api/messages', authMiddleware, (req, res) => {
-  const rows = db.prepare('SELECT role, content, created_at FROM messages WHERE user_id=? ORDER BY id ASC LIMIT 80').all(req.user.id);
-  res.json({
-    messages: rows.map(r => ({
-      role: r.role, content: r.content,
-      time: new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }))
-  });
+app.get('/api/messages', auth, async (req, res) => {
+  const rows = await DB.all('SELECT role,content,created_at FROM messages WHERE user_id=? ORDER BY id ASC LIMIT 80', req.user.id);
+  res.json({ messages: rows.map(r => ({ role:r.role, content:r.content, time: new Date(r.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) })) });
 });
 
-app.post('/api/messages', authMiddleware, (req, res) => {
+app.post('/api/messages', auth, async (req, res) => {
   const { role, content } = req.body;
   if (!role || !content) return res.status(400).json({ error: 'role and content required' });
-  db.prepare('INSERT INTO messages (user_id, role, content, created_at) VALUES (?,?,?,?)').run(req.user.id, role, content, new Date().toISOString());
-  db.prepare('DELETE FROM messages WHERE user_id=? AND id NOT IN (SELECT id FROM messages WHERE user_id=? ORDER BY id DESC LIMIT 100)').run(req.user.id, req.user.id);
+  await DB.run('INSERT INTO messages (user_id,role,content,created_at) VALUES (?,?,?,?)', req.user.id, role, content, new Date().toISOString());
   res.json({ ok: true });
 });
 
-app.delete('/api/messages', authMiddleware, (req, res) => {
-  db.prepare('DELETE FROM messages WHERE user_id=?').run(req.user.id);
+app.delete('/api/messages', auth, async (req, res) => {
+  await DB.run('DELETE FROM messages WHERE user_id=?', req.user.id);
   res.json({ ok: true });
 });
 
-// ── OPENROUTER HELPER ─────────────────────────────────────────────────────────
+// ── OPENROUTER ────────────────────────────────────────────────────────────────
 async function openRouterChat(model, messages, systemPrompt, maxTokens = 700) {
   if (!OPENROUTER_KEY) throw new Error('OPENROUTER_API_KEY is not set on the server.');
-
   const response = await fetch(OPENROUTER_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: {
       'Content-Type':  'application/json',
       'Authorization': `Bearer ${OPENROUTER_KEY}`,
-      'HTTP-Referer':  process.env.FRONTEND_URL || 'https://solace-ai-1-atkq.onrender.com',
+      'HTTP-Referer':  'https://solace-ai-1-atkq.onrender.com',
       'X-Title':       'Solace AI',
     },
     body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages,
-      ],
+      model, max_tokens: maxTokens,
+      messages: [{ role:'system', content:systemPrompt }, ...messages],
     }),
   });
-
   const data = await response.json();
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
   const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error('Empty response from AI model');
+  if (!text) throw new Error('Empty AI response: ' + JSON.stringify(data).slice(0,200));
   return text.trim();
 }
 
-// ── CHAT ──────────────────────────────────────────────────────────────────────
-app.post('/api/chat', authMiddleware, async (req, res) => {
-  const { messages, systemPrompt } = req.body;
+app.post('/api/chat', auth, async (req, res) => {
   try {
-    const reply = await openRouterChat(CHAT_MODEL, messages, systemPrompt, 700);
+    const reply = await openRouterChat(CHAT_MODEL, req.body.messages, req.body.systemPrompt, 700);
     res.json({ reply });
   } catch (e) {
     console.error('Chat error:', e.message);
@@ -268,26 +260,27 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
   }
 });
 
-// ── MEMORY EXTRACTION ─────────────────────────────────────────────────────────
-app.post('/api/extract-memory', authMiddleware, async (req, res) => {
+app.post('/api/extract-memory', auth, async (req, res) => {
   const { userText, existingFacts } = req.body;
-  if (!OPENROUTER_KEY) return res.json({ newFacts: [], mood: null, milestone: null });
+  if (!OPENROUTER_KEY) return res.json({ newFacts:[], mood:null, milestone:null });
   try {
-    const systemPrompt = `Extract key personal facts from a user message for a long-term memory system.
-Existing facts: ${JSON.stringify(existingFacts || [])}
-Return ONLY valid JSON, no markdown:
-{"newFacts": ["up to 3 NEW facts"], "mood": "one word or null", "milestone": "brief string or null"}`;
-    const raw    = await openRouterChat(EXTRACT_MODEL, [{ role: 'user', content: `User said: "${userText}"` }], systemPrompt, 300);
-    const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    const sys = `Extract personal facts from a user message. Existing: ${JSON.stringify(existingFacts||[])}
+Return ONLY valid JSON: {"newFacts":["up to 3 NEW facts"],"mood":"one word or null","milestone":"string or null"}`;
+    const raw    = await openRouterChat(EXTRACT_MODEL, [{ role:'user', content:`User said: "${userText}"` }], sys, 200);
+    const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
     res.json(parsed);
   } catch {
-    res.json({ newFacts: [], mood: null, milestone: null });
+    res.json({ newFacts:[], mood:null, milestone:null });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✦ Solace API running on http://localhost:${PORT}`);
-  console.log(`OpenRouter key set: ${!!OPENROUTER_KEY}`);
-  console.log(`Chat model: ${CHAT_MODEL}`);
-  console.log(`DB path: ${DB_PATH}`);
-});
+// ── START ─────────────────────────────────────────────────────────────────────
+initDB().then(store => {
+  DB = makeDB(store);
+  app.listen(PORT, () => {
+    console.log(`✦ Solace API on http://localhost:${PORT}`);
+    console.log(`  DB:    ${process.env.TURSO_DB_URL ? 'Turso cloud' : 'SQLite /tmp'}`);
+    console.log(`  AI key: ${OPENROUTER_KEY ? 'set ✓' : 'MISSING ✗'}`);
+    console.log(`  Model: ${CHAT_MODEL}`);
+  });
+}).catch(e => { console.error('DB init failed:', e); process.exit(1); });

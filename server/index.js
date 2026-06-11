@@ -3,23 +3,25 @@ const cors     = require('cors');
 const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');
 const Database = require('better-sqlite3');
-// Using built-in fetch (Node 20+)
 const path     = require('path');
+const fs       = require('fs');
 require('dotenv').config();
 
 const app    = express();
 const PORT   = process.env.PORT || 3001;
 const SECRET = process.env.JWT_SECRET || 'solace-dev-secret-change-in-prod';
 
-// ── OpenRouter — free tier, no credit card, works immediately
-// Free models: google/gemini-2.0-flash-exp:free, meta-llama/llama-3.3-70b-instruct:free, deepseek/deepseek-r1:free
-const OPENROUTER_KEY   = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_URL   = 'https://openrouter.ai/api/v1/chat/completions';
-const CHAT_MODEL       = process.env.CHAT_MODEL       || 'google/gemini-2.0-flash-exp:free';
-const EXTRACT_MODEL    = process.env.EXTRACT_MODEL    || 'meta-llama/llama-3.3-70b-instruct:free';
+const OPENROUTER_KEY  = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_URL  = 'https://openrouter.ai/api/v1/chat/completions';
+const CHAT_MODEL      = process.env.CHAT_MODEL    || 'google/gemini-2.0-flash-exp:free';
+const EXTRACT_MODEL   = process.env.EXTRACT_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
 
 // ── DATABASE ──────────────────────────────────────────────────────────────────
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'solace.db');
+// Render free tier has no persistent disk, so we use /tmp which survives restarts
+// but NOT redeploys. For true persistence, set DB_PATH to a Render Disk mount path.
+const DB_PATH = process.env.DB_PATH || '/tmp/solace.db';
+console.log('DB path:', DB_PATH);
+
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 
@@ -53,26 +55,20 @@ db.exec(`
 // ── MIDDLEWARE ────────────────────────────────────────────────────────────────
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow requests with no origin (mobile, curl, server-to-server)
     if (!origin) return cb(null, true);
-    // Allow localhost (dev) and all onrender.com subdomains
     if (
       origin.includes('localhost') ||
       origin.includes('onrender.com') ||
-      origin === (process.env.FRONTEND_URL || '')
+      origin.includes('render.com')
     ) return cb(null, true);
-    // Allow any origin in comma-separated FRONTEND_URL list
-    const allowed = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim());
+    const allowed = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
     if (allowed.some(o => origin.startsWith(o))) return cb(null, true);
-    // Block everything else
     console.warn('CORS blocked:', origin);
     cb(null, false);
   },
   credentials: true
 }));
 app.use(express.json({ limit: '4mb' }));
-
-// Frontend is served separately as a static site on Render
 
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -84,8 +80,52 @@ const authMiddleware = (req, res, next) => {
 const today = () =>
   new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric', day: 'numeric' });
 
-// ── HEALTH ────────────────────────────────────────────────────────────────────
-app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
+// ── HEALTH + DEBUG ────────────────────────────────────────────────────────────
+app.get('/api/health', (req, res) => {
+  const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
+  res.json({
+    status: 'ok',
+    time: new Date().toISOString(),
+    db: DB_PATH,
+    users: userCount,
+    hasOpenRouterKey: !!OPENROUTER_KEY,
+    keyPrefix: OPENROUTER_KEY ? OPENROUTER_KEY.slice(0, 12) + '...' : 'NOT SET',
+    chatModel: CHAT_MODEL,
+  });
+});
+
+// ── AI TEST (no auth needed — for debugging) ──────────────────────────────────
+app.get('/api/test-ai', async (req, res) => {
+  if (!OPENROUTER_KEY) {
+    return res.json({ ok: false, error: 'OPENROUTER_API_KEY is not set on the server' });
+  }
+  try {
+    const response = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${OPENROUTER_KEY}`,
+        'HTTP-Referer':  process.env.FRONTEND_URL || 'https://solace-ai-1-atkq.onrender.com',
+        'X-Title':       'Solace AI',
+      },
+      body: JSON.stringify({
+        model: CHAT_MODEL,
+        max_tokens: 50,
+        messages: [{ role: 'user', content: 'Say "AI is working!" and nothing else.' }],
+      }),
+    });
+    const data = await response.json();
+    console.log('AI test response:', JSON.stringify(data));
+    const text = data.choices?.[0]?.message?.content;
+    if (text) {
+      res.json({ ok: true, reply: text, model: CHAT_MODEL });
+    } else {
+      res.json({ ok: false, error: data.error?.message || 'No content', raw: data });
+    }
+  } catch (e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 app.post('/api/auth/signup', async (req, res) => {
@@ -104,6 +144,7 @@ app.post('/api/auth/signup', async (req, res) => {
 
   const token = jwt.sign({ id: uid, email, name }, SECRET, { expiresIn: '30d' });
   const user  = db.prepare('SELECT id, name, email, created_at FROM users WHERE id = ?').get(uid);
+  console.log('New user signed up:', email);
   res.json({ token, user: { ...user, createdAt: user.created_at } });
 });
 
@@ -114,6 +155,7 @@ app.post('/api/auth/signin', async (req, res) => {
   if (!user || !(await bcrypt.compare(password, user.password_hash)))
     return res.status(401).json({ error: 'Incorrect email or password.' });
   const token = jwt.sign({ id: user.id, email: user.email, name: user.name }, SECRET, { expiresIn: '30d' });
+  console.log('User signed in:', email);
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, createdAt: user.created_at } });
 });
 
@@ -187,34 +229,30 @@ app.delete('/api/messages', authMiddleware, (req, res) => {
 
 // ── OPENROUTER HELPER ─────────────────────────────────────────────────────────
 async function openRouterChat(model, messages, systemPrompt, maxTokens = 700) {
-  if (!OPENROUTER_KEY) throw new Error('OPENROUTER_API_KEY not set on server.');
-
-  const body = {
-    model,
-    max_tokens: maxTokens,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      ...messages,
-    ],
-  };
+  if (!OPENROUTER_KEY) throw new Error('OPENROUTER_API_KEY is not set on the server.');
 
   const response = await fetch(OPENROUTER_URL, {
     method:  'POST',
     headers: {
       'Content-Type':  'application/json',
       'Authorization': `Bearer ${OPENROUTER_KEY}`,
-      'HTTP-Referer':  process.env.FRONTEND_URL || 'http://localhost:3000',
+      'HTTP-Referer':  process.env.FRONTEND_URL || 'https://solace-ai-1-atkq.onrender.com',
       'X-Title':       'Solace AI',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages,
+      ],
+    }),
   });
 
   const data = await response.json();
-  console.log('OpenRouter status:', response.status);
-  console.log('OpenRouter response:', JSON.stringify(data).slice(0, 500));
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
   const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error('No response from AI - full response: ' + JSON.stringify(data).slice(0, 300));
+  if (!text) throw new Error('Empty response from AI model');
   return text.trim();
 }
 
@@ -225,8 +263,8 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     const reply = await openRouterChat(CHAT_MODEL, messages, systemPrompt, 700);
     res.json({ reply });
   } catch (e) {
-    console.error('Chat error full:', e);
-    res.status(500).json({ error: e.message || 'AI service error. Please try again.' });
+    console.error('Chat error:', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -234,14 +272,11 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
 app.post('/api/extract-memory', authMiddleware, async (req, res) => {
   const { userText, existingFacts } = req.body;
   if (!OPENROUTER_KEY) return res.json({ newFacts: [], mood: null, milestone: null });
-
-  const systemPrompt = `You extract key personal facts from a user message for a long-term memory system.
-Existing facts: ${JSON.stringify(existingFacts || [])}
-Return ONLY valid JSON, no markdown, no explanation:
-{"newFacts": ["up to 3 NEW facts not already saved"], "mood": "one word or null", "milestone": "brief milestone string or null"}
-Facts must be personal and useful for a companion. Only include genuinely NEW facts.`;
-
   try {
+    const systemPrompt = `Extract key personal facts from a user message for a long-term memory system.
+Existing facts: ${JSON.stringify(existingFacts || [])}
+Return ONLY valid JSON, no markdown:
+{"newFacts": ["up to 3 NEW facts"], "mood": "one word or null", "milestone": "brief string or null"}`;
     const raw    = await openRouterChat(EXTRACT_MODEL, [{ role: 'user', content: `User said: "${userText}"` }], systemPrompt, 300);
     const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
     res.json(parsed);
@@ -250,5 +285,9 @@ Facts must be personal and useful for a companion. Only include genuinely NEW fa
   }
 });
 
-
-app.listen(PORT, () => console.log(`✦ Solace API running on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`✦ Solace API running on http://localhost:${PORT}`);
+  console.log(`OpenRouter key set: ${!!OPENROUTER_KEY}`);
+  console.log(`Chat model: ${CHAT_MODEL}`);
+  console.log(`DB path: ${DB_PATH}`);
+});

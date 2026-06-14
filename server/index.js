@@ -11,8 +11,8 @@ const SECRET = process.env.JWT_SECRET || 'solace-dev-secret';
 
 const OPENROUTER_KEY  = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_URL  = 'https://openrouter.ai/api/v1/chat/completions';
-const CHAT_MODEL      = process.env.CHAT_MODEL    || 'google/gemini-2.0-flash-exp:free';
-const EXTRACT_MODEL   = process.env.EXTRACT_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
+const CHAT_MODEL      = process.env.CHAT_MODEL    || 'meta-llama/llama-3.3-70b-instruct:free';
+const EXTRACT_MODEL   = process.env.EXTRACT_MODEL || 'mistralai/mistral-7b-instruct:free';
 
 // ── DATABASE — uses Turso (free cloud SQLite) if env vars set, else local file ─
 let db;

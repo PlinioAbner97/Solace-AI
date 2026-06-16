@@ -14,18 +14,21 @@ const OPENROUTER_URL  = 'https://openrouter.ai/api/v1/chat/completions';
 
 // openrouter/free automatically picks the best available free model
 // No more hardcoding — OpenRouter handles fallbacks automatically
-// Free models confirmed working June 2026 — auto-fallback if rate limited
+// openrouter/auto always picks an available free model automatically
+// Fallback list covers cases where auto fails
 const CHAT_MODELS = [
-  'nvidia/llama-3.1-nemotron-ultra-253b-v1:free',
+  'openrouter/auto',
   'qwen/qwen3-235b-a22b:free',
+  'amazon/nova-2-lite-v1:free',
+  'z-ai/glm-4.5-air:free',
   'meta-llama/llama-3.3-70b-instruct:free',
   'mistralai/mistral-small-3.1-24b-instruct:free',
   'qwen/qwen3-14b:free',
-  'microsoft/phi-4-reasoning-plus:free',
 ];
 const EXTRACT_MODELS = [
+  'openrouter/auto',
   'qwen/qwen3-14b:free',
-  'mistralai/mistral-small-3.1-24b-instruct:free',
+  'z-ai/glm-4.5-air:free',
   'meta-llama/llama-3.3-70b-instruct:free',
 ];
 

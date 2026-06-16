@@ -12,18 +12,20 @@ const SECRET = process.env.JWT_SECRET || 'solace-dev-secret';
 const OPENROUTER_KEY  = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_URL  = 'https://openrouter.ai/api/v1/chat/completions';
 
-// Multiple free models — tried in order, falls back if one is rate-limited
+// openrouter/free automatically picks the best available free model
+// No more hardcoding — OpenRouter handles fallbacks automatically
+// Free models confirmed working June 2026 — auto-fallback if rate limited
 const CHAT_MODELS = [
-  'deepseek/deepseek-r1-0528:free',
-  'deepseek/deepseek-chat-v3-0324:free',
-  'mistralai/mistral-small-3.1-24b-instruct:free',
+  'nvidia/llama-3.1-nemotron-ultra-253b-v1:free',
+  'qwen/qwen3-235b-a22b:free',
   'meta-llama/llama-3.3-70b-instruct:free',
-  'microsoft/phi-4-reasoning-plus:free',
+  'mistralai/mistral-small-3.1-24b-instruct:free',
   'qwen/qwen3-14b:free',
+  'microsoft/phi-4-reasoning-plus:free',
 ];
 const EXTRACT_MODELS = [
-  'mistralai/mistral-small-3.1-24b-instruct:free',
   'qwen/qwen3-14b:free',
+  'mistralai/mistral-small-3.1-24b-instruct:free',
   'meta-llama/llama-3.3-70b-instruct:free',
 ];
 

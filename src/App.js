@@ -16,6 +16,8 @@ export default function App() {
   const [profileForm, setProfileForm] = useState({});
 
   useEffect(() => {
+    // Wake the server immediately on page load (Render free tier sleeps after inactivity)
+    fetch('https://solace-ai-xyrq.onrender.com/api/health').catch(() => {});
     (async () => {
       const token = localStorage.getItem('solace_token');
       if (!token) { setStatus('guest'); return; }

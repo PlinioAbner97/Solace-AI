@@ -19,26 +19,43 @@ export default function Auth({ onLogin }) {
     if (tab === 'signup' && !form.name) return setError('Please enter your name.');
     if (tab === 'signup' && form.password.length < 6) return setError('Password must be at least 6 characters.');
     setLoading(true);
+    setError('');
+
+    // Wake up the server first (Render free tier sleeps after inactivity)
     try {
-      let data;
-      if (tab === 'signup') {
-        data = await api.signup(form.name, form.email, form.password);
-      } else {
-        data = await api.signin(form.email, form.password);
+      await fetch('https://solace-ai-xyrq.onrender.com/api/health');
+    } catch { /* ignore — just waking up */ }
+
+    // Retry up to 3 times with delay (server may still be waking)
+    let lastError = '';
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        let data;
+        if (tab === 'signup') {
+          data = await api.signup(form.name, form.email, form.password);
+        } else {
+          data = await api.signin(form.email, form.password);
+        }
+        localStorage.setItem('solace_token', data.token);
+        onLogin(data.user);
+        if (tab === 'signup' || !data.user.companionName) {
+          navigate('/pick-companion');
+        } else {
+          navigate('/app');
+        }
+        return; // success — exit
+      } catch (e) {
+        lastError = e.message || 'Something went wrong.';
+        if (attempt < 3 && (lastError.includes('Network') || lastError.includes('fetch') || lastError.includes('reach'))) {
+          // Server still waking — wait and retry
+          await new Promise(r => setTimeout(r, 3000));
+          continue;
+        }
+        break;
       }
-      localStorage.setItem('solace_token', data.token);
-      onLogin(data.user);
-      // New users go to companion picker; returning users go to app
-      if (tab === 'signup' || !data.user.companionName) {
-        navigate('/pick-companion');
-      } else {
-        navigate('/app');
-      }
-    } catch (e) {
-      setError(e.message || 'Something went wrong.');
-    } finally {
-      setLoading(false);
     }
+    setError(lastError);
+    setLoading(false);
   };
 
   const onKey = (e) => { if (e.key === 'Enter') submit(); };
@@ -105,7 +122,7 @@ export default function Auth({ onLogin }) {
             </div>
 
             <button className="auth-submit" onClick={submit} disabled={loading}>
-              {loading ? 'Just a moment…' : tab === 'signin' ? 'Sign In to Solace' : 'Create My Account'}
+              {loading ? '⏳ Connecting to server… (may take 30s on first visit)' : tab === 'signin' ? 'Sign In to Solace' : 'Create My Account'}
             </button>
 
             {error && <p className="auth-error">{error}</p>}

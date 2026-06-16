@@ -11,8 +11,21 @@ const SECRET = process.env.JWT_SECRET || 'solace-dev-secret';
 
 const OPENROUTER_KEY  = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_URL  = 'https://openrouter.ai/api/v1/chat/completions';
-const CHAT_MODEL      = process.env.CHAT_MODEL    || 'meta-llama/llama-3.3-70b-instruct:free';
-const EXTRACT_MODEL   = process.env.EXTRACT_MODEL || 'mistralai/mistral-7b-instruct:free';
+
+// Multiple free models — tried in order, falls back if one is rate-limited
+const CHAT_MODELS = [
+  'deepseek/deepseek-r1-0528:free',
+  'deepseek/deepseek-chat-v3-0324:free',
+  'mistralai/mistral-small-3.1-24b-instruct:free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'microsoft/phi-4-reasoning-plus:free',
+  'qwen/qwen3-14b:free',
+];
+const EXTRACT_MODELS = [
+  'mistralai/mistral-small-3.1-24b-instruct:free',
+  'qwen/qwen3-14b:free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+];
 
 // ── DATABASE — uses Turso (free cloud SQLite) if env vars set, else local file ─
 let db;
@@ -113,7 +126,7 @@ app.get('/api/health', async (req, res) => {
     users: Number(row?.c || 0),
     hasOpenRouterKey: !!OPENROUTER_KEY,
     keyPrefix: OPENROUTER_KEY ? OPENROUTER_KEY.slice(0,12)+'...' : 'NOT SET',
-    chatModel: CHAT_MODEL,
+    chatModels: CHAT_MODELS,
     db: process.env.TURSO_DB_URL ? 'turso-cloud' : 'sqlite-local',
   });
 });
@@ -131,13 +144,13 @@ app.get('/api/test-ai', async (req, res) => {
         'X-Title':       'Solace AI',
       },
       body: JSON.stringify({
-        model: CHAT_MODEL, max_tokens: 30,
+        model: CHAT_MODELS[0], max_tokens: 30,
         messages: [{ role: 'user', content: 'Reply with exactly: AI is working!' }],
       }),
     });
     const data = await response.json();
     const text = data.choices?.[0]?.message?.content;
-    if (text) return res.json({ ok: true, reply: text, model: CHAT_MODEL });
+    if (text) return res.json({ ok: true, reply: text, model: CHAT_MODELS[0] });
     res.json({ ok: false, raw: data });
   } catch (e) {
     res.json({ ok: false, error: e.message });
@@ -228,8 +241,7 @@ app.delete('/api/messages', auth, async (req, res) => {
 });
 
 // ── OPENROUTER ────────────────────────────────────────────────────────────────
-async function openRouterChat(model, messages, systemPrompt, maxTokens = 700) {
-  if (!OPENROUTER_KEY) throw new Error('OPENROUTER_API_KEY is not set on the server.');
+async function callModel(model, messages, systemPrompt, maxTokens) {
   const response = await fetch(OPENROUTER_URL, {
     method: 'POST',
     headers: {
@@ -239,20 +251,50 @@ async function openRouterChat(model, messages, systemPrompt, maxTokens = 700) {
       'X-Title':       'Solace AI',
     },
     body: JSON.stringify({
-      model, max_tokens: maxTokens,
-      messages: [{ role:'system', content:systemPrompt }, ...messages],
+      model,
+      max_tokens: maxTokens,
+      messages: [{ role: 'system', content: systemPrompt }, ...messages],
     }),
   });
   const data = await response.json();
-  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  if (data.error) {
+    const code = data.error.code || 0;
+    // 429 = rate limited, 404 = model gone — both are retryable with next model
+    if (code === 429 || code === 404 || code === 503) {
+      throw new Error(`RETRY:${data.error.message}`);
+    }
+    throw new Error(data.error.message || JSON.stringify(data.error));
+  }
   const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error('Empty AI response: ' + JSON.stringify(data).slice(0,200));
+  if (!text) throw new Error('Empty response from model');
   return text.trim();
+}
+
+async function openRouterChat(models, messages, systemPrompt, maxTokens = 700) {
+  if (!OPENROUTER_KEY) throw new Error('OPENROUTER_API_KEY is not set on the server.');
+  const modelList = Array.isArray(models) ? models : [models];
+  let lastError = '';
+  for (const model of modelList) {
+    try {
+      console.log('Trying model:', model);
+      const text = await callModel(model, messages, systemPrompt, maxTokens);
+      console.log('Success with model:', model);
+      return text;
+    } catch (e) {
+      lastError = e.message;
+      if (e.message.startsWith('RETRY:')) {
+        console.warn(`Model ${model} rate-limited/unavailable, trying next...`);
+        continue; // try next model
+      }
+      throw e; // non-retryable error
+    }
+  }
+  throw new Error(`All models unavailable. Last error: ${lastError.replace('RETRY:','')}`);
 }
 
 app.post('/api/chat', auth, async (req, res) => {
   try {
-    const reply = await openRouterChat(CHAT_MODEL, req.body.messages, req.body.systemPrompt, 700);
+    const reply = await openRouterChat(CHAT_MODELS, req.body.messages, req.body.systemPrompt, 700);
     res.json({ reply });
   } catch (e) {
     console.error('Chat error:', e.message);
@@ -266,7 +308,7 @@ app.post('/api/extract-memory', auth, async (req, res) => {
   try {
     const sys = `Extract personal facts from a user message. Existing: ${JSON.stringify(existingFacts||[])}
 Return ONLY valid JSON: {"newFacts":["up to 3 NEW facts"],"mood":"one word or null","milestone":"string or null"}`;
-    const raw    = await openRouterChat(EXTRACT_MODEL, [{ role:'user', content:`User said: "${userText}"` }], sys, 200);
+    const raw    = await openRouterChat(EXTRACT_MODELS, [{ role:'user', content:`User said: "${userText}"` }], sys, 200);
     const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
     res.json(parsed);
   } catch {
@@ -281,6 +323,6 @@ initDB().then(store => {
     console.log(`✦ Solace API on http://localhost:${PORT}`);
     console.log(`  DB:    ${process.env.TURSO_DB_URL ? 'Turso cloud' : 'SQLite /tmp'}`);
     console.log(`  AI key: ${OPENROUTER_KEY ? 'set ✓' : 'MISSING ✗'}`);
-    console.log(`  Model: ${CHAT_MODEL}`);
+    console.log(`  Models: ${CHAT_MODELS.join(', ')}`);
   });
 }).catch(e => { console.error('DB init failed:', e); process.exit(1); });

@@ -31,7 +31,8 @@ export default function AppShell({ user, companion, memory: initMemory, messages
     setSending(true);
 
     try {
-      await api.saveMessage('user', userMsg.content);
+      // Save user message
+      api.saveMessage('user', userMsg.content).catch(e => console.warn('Save user msg failed:', e.message));
 
       const apiHistory = next.slice(-24).map(m => ({
         role: m.role === 'user' ? 'user' : 'assistant',
@@ -44,13 +45,21 @@ export default function AppShell({ user, companion, memory: initMemory, messages
       const aiMsg = { role: 'assistant', content: reply, time: nowTime() };
       const final = [...next, aiMsg];
       setMessages(final);
-      await api.saveMessage('assistant', reply);
 
-      // background memory extraction
+      // Save assistant message
+      api.saveMessage('assistant', reply).catch(e => console.warn('Save ai msg failed:', e.message));
+
+      // Background memory extraction — never blocks chat
       extractAndSaveMemory(userMsg.content);
     } catch (e) {
-      console.error(e);
-      setMessages(prev => [...prev, { role: 'assistant', content: "I'm here — something went wrong on my end. Try again?", time: nowTime() }]);
+      console.error('Chat error:', e.message);
+      // Show the REAL error so user knows what happened
+      const errText = e.message?.includes('OPENROUTER') || e.message?.includes('AI')
+        ? `AI error: ${e.message}`
+        : e.message?.includes('Network') || e.message?.includes('reach')
+        ? 'Cannot reach server — please check your connection.'
+        : `Something went wrong: ${e.message}`;
+      setMessages(prev => [...prev, { role: 'assistant', content: errText, time: nowTime() }]);
     } finally {
       setSending(false);
       inputRef.current?.focus();
@@ -60,19 +69,27 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const extractAndSaveMemory = async (userText) => {
     try {
       const extracted = await api.extractMemory(userText, memory.facts || []);
-      const updated = { ...memory };
+      const updated = {
+        profile:     memory.profile     || {},
+        facts:       [...(memory.facts       || [])],
+        moodHistory: [...(memory.moodHistory || [])],
+        timeline:    [...(memory.timeline    || [])],
+      };
       if (extracted.newFacts?.length) {
-        updated.facts = [...(memory.facts || []), ...extracted.newFacts].slice(-50);
+        updated.facts = [...updated.facts, ...extracted.newFacts].slice(-50);
       }
       if (extracted.mood) {
-        updated.moodHistory = [...(memory.moodHistory || []), { mood: extracted.mood, date: todayStr() }].slice(-40);
+        updated.moodHistory = [...updated.moodHistory, { mood: extracted.mood, date: todayStr() }].slice(-40);
       }
       if (extracted.milestone) {
-        updated.timeline = [...(memory.timeline || []), { date: todayStr(), content: extracted.milestone }].slice(-60);
+        updated.timeline = [...updated.timeline, { date: todayStr(), content: extracted.milestone }].slice(-60);
       }
       setMemory(updated);
       await api.saveMemory(updated);
-    } catch { /* silent */ }
+      console.log('Memory saved — facts:', updated.facts.length);
+    } catch (e) {
+      console.warn('Memory save failed:', e.message);
+    }
   };
 
   const saveProfile = async () => {

@@ -13,6 +13,7 @@ export default function App() {
   const [companion, setCompanion] = useState(null);
   const [memory, setMemory] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [profileForm, setProfileForm] = useState({});
 
   useEffect(() => {
     (async () => {
@@ -46,7 +47,29 @@ export default function App() {
     })();
   }, []);
 
-  const handleLogin = (u) => { setUser(u); setStatus('auth'); };
+  const handleLogin = async (u) => {
+    setUser(u);
+    setStatus('auth');
+    // Load memory and messages after login
+    try {
+      const mem = await api.getMemory();
+      const { messages: msgs } = await api.getMessages();
+      setMemory(mem);
+      setMessages(msgs);
+      setProfileForm(mem.profile || {});
+      if (mem?.profile?.companionName) {
+        setCompanion({
+          name:   mem.profile.companionName,
+          gender: mem.profile.companionGender,
+          emoji:  mem.profile.companionEmoji,
+          trait:  mem.profile.companionTrait,
+          accent: mem.profile.companionAccent,
+        });
+      }
+    } catch(e) {
+      console.warn('Failed to load user data after login:', e.message);
+    }
+  };
 
   const handleCompanionPicked = async (comp, gender) => {
     setCompanion({ ...comp, gender });

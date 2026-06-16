@@ -9,27 +9,22 @@ const app    = express();
 const PORT   = process.env.PORT || 3001;
 const SECRET = process.env.JWT_SECRET || 'solace-dev-secret';
 
-const OPENROUTER_KEY  = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_URL  = 'https://openrouter.ai/api/v1/chat/completions';
+const GROQ_KEY = process.env.GROQ_API_KEY;
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-// openrouter/free automatically picks the best available free model
-// No more hardcoding — OpenRouter handles fallbacks automatically
-// openrouter/auto always picks an available free model automatically
-// Fallback list covers cases where auto fails
+// Groq free tier: 1,000 req/day, 30 RPM, no credit card
+// Get key at: https://console.groq.com/keys
 const CHAT_MODELS = [
-  'openrouter/auto',
-  'qwen/qwen3-235b-a22b:free',
-  'amazon/nova-2-lite-v1:free',
-  'z-ai/glm-4.5-air:free',
-  'meta-llama/llama-3.3-70b-instruct:free',
-  'mistralai/mistral-small-3.1-24b-instruct:free',
-  'qwen/qwen3-14b:free',
+  'llama-3.3-70b-versatile',
+  'llama3-70b-8192',
+  'llama-3.1-8b-instant',
+  'gemma2-9b-it',
+  'mixtral-8x7b-32768',
 ];
 const EXTRACT_MODELS = [
-  'openrouter/auto',
-  'qwen/qwen3-14b:free',
-  'z-ai/glm-4.5-air:free',
-  'meta-llama/llama-3.3-70b-instruct:free',
+  'llama-3.1-8b-instant',
+  'gemma2-9b-it',
+  'mixtral-8x7b-32768',
 ];
 
 // ── DATABASE — uses Turso (free cloud SQLite) if env vars set, else local file ─
@@ -129,8 +124,8 @@ app.get('/api/health', async (req, res) => {
     status: 'ok',
     time: new Date().toISOString(),
     users: Number(row?.c || 0),
-    hasOpenRouterKey: !!OPENROUTER_KEY,
-    keyPrefix: OPENROUTER_KEY ? OPENROUTER_KEY.slice(0,12)+'...' : 'NOT SET',
+    hasGroqKey: !!GROQ_KEY,
+    keyPrefix: GROQ_KEY ? GROQ_KEY.slice(0,8)+'...' : 'NOT SET',
     chatModels: CHAT_MODELS,
     db: process.env.TURSO_DB_URL ? 'turso-cloud' : 'sqlite-local',
   });
@@ -138,13 +133,13 @@ app.get('/api/health', async (req, res) => {
 
 // ── AI TEST ───────────────────────────────────────────────────────────────────
 app.get('/api/test-ai', async (req, res) => {
-  if (!OPENROUTER_KEY) return res.json({ ok: false, error: 'OPENROUTER_API_KEY not set' });
+  if (!GROQ_KEY) return res.json({ ok: false, error: 'GROQ_API_KEY not set' });
   try {
-    const response = await fetch(OPENROUTER_URL, {
+    const response = await fetch(GROQ_URL, {
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
-        'Authorization': `Bearer ${OPENROUTER_KEY}`,
+        'Authorization': `Bearer ${GROQ_KEY}`,
         'HTTP-Referer':  'https://solace-ai-1-atkq.onrender.com',
         'X-Title':       'Solace AI',
       },
@@ -245,13 +240,13 @@ app.delete('/api/messages', auth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── OPENROUTER ────────────────────────────────────────────────────────────────
+// ── GROQ ────────────────────────────────────────────────────────────────────────
 async function callModel(model, messages, systemPrompt, maxTokens) {
-  const response = await fetch(OPENROUTER_URL, {
+  const response = await fetch(GROQ_URL, {
     method: 'POST',
     headers: {
       'Content-Type':  'application/json',
-      'Authorization': `Bearer ${OPENROUTER_KEY}`,
+      'Authorization': `Bearer ${GROQ_KEY}`,
       'HTTP-Referer':  'https://solace-ai-1-atkq.onrender.com',
       'X-Title':       'Solace AI',
     },
@@ -275,8 +270,8 @@ async function callModel(model, messages, systemPrompt, maxTokens) {
   return text.trim();
 }
 
-async function openRouterChat(models, messages, systemPrompt, maxTokens = 700) {
-  if (!OPENROUTER_KEY) throw new Error('OPENROUTER_API_KEY is not set on the server.');
+async function groqChat(models, messages, systemPrompt, maxTokens = 700) {
+  if (!GROQ_KEY) throw new Error('GROQ_API_KEY is not set on the server.');
   const modelList = Array.isArray(models) ? models : [models];
   let lastError = '';
   for (const model of modelList) {
@@ -299,7 +294,7 @@ async function openRouterChat(models, messages, systemPrompt, maxTokens = 700) {
 
 app.post('/api/chat', auth, async (req, res) => {
   try {
-    const reply = await openRouterChat(CHAT_MODELS, req.body.messages, req.body.systemPrompt, 700);
+    const reply = await groqChat(CHAT_MODELS, req.body.messages, req.body.systemPrompt, 700);
     res.json({ reply });
   } catch (e) {
     console.error('Chat error:', e.message);
@@ -309,11 +304,11 @@ app.post('/api/chat', auth, async (req, res) => {
 
 app.post('/api/extract-memory', auth, async (req, res) => {
   const { userText, existingFacts } = req.body;
-  if (!OPENROUTER_KEY) return res.json({ newFacts:[], mood:null, milestone:null });
+  if (!GROQ_KEY) return res.json({ newFacts:[], mood:null, milestone:null });
   try {
     const sys = `Extract personal facts from a user message. Existing: ${JSON.stringify(existingFacts||[])}
 Return ONLY valid JSON: {"newFacts":["up to 3 NEW facts"],"mood":"one word or null","milestone":"string or null"}`;
-    const raw    = await openRouterChat(EXTRACT_MODELS, [{ role:'user', content:`User said: "${userText}"` }], sys, 200);
+    const raw    = await groqChat(EXTRACT_MODELS, [{ role:'user', content:`User said: "${userText}"` }], sys, 200);
     const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
     res.json(parsed);
   } catch {
@@ -327,7 +322,7 @@ initDB().then(store => {
   app.listen(PORT, () => {
     console.log(`✦ Solace API on http://localhost:${PORT}`);
     console.log(`  DB:    ${process.env.TURSO_DB_URL ? 'Turso cloud' : 'SQLite /tmp'}`);
-    console.log(`  AI key: ${OPENROUTER_KEY ? 'set ✓' : 'MISSING ✗'}`);
+    console.log(`  AI key: ${GROQ_KEY ? 'set ✓' : 'MISSING ✗'}`);
     console.log(`  Models: ${CHAT_MODELS.join(', ')}`);
   });
 }).catch(e => { console.error('DB init failed:', e); process.exit(1); });

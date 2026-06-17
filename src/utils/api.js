@@ -1,7 +1,6 @@
-// Always point to the backend explicitly — never fall back to same origin
 const BASE = process.env.REACT_APP_API_URL
-  ? process.env.REACT_APP_API_URL.replace(/\/$/, '')  // strip trailing slash
-  : 'https://solace-ai-xyrq.onrender.com';             // hardcoded fallback
+  ? process.env.REACT_APP_API_URL.replace(/\/$/, '')
+  : 'https://solace-ai-xyrq.onrender.com';
 
 const authHeader = () => {
   const token = localStorage.getItem('solace_token');
@@ -19,32 +18,30 @@ const call = async (path, method = 'GET', body = null) => {
   } catch (networkErr) {
     throw new Error(`Network error — cannot reach server: ${networkErr.message}`);
   }
-  try {
-    data = await res.json();
-  } catch {
-    throw new Error(`Server returned non-JSON (status ${res.status})`);
-  }
+  try { data = await res.json(); }
+  catch { throw new Error(`Server returned non-JSON (status ${res.status})`); }
   if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
   return data;
 };
 
+// companion = the companion's name (e.g. "Luna", "Kai") — each gets isolated storage
 export const api = {
-  signup:        (name, email, password)  => call('/auth/signup', 'POST', { name, email, password }),
-  signin:        (email, password)         => call('/auth/signin', 'POST', { email, password }),
-  me:            ()                        => call('/auth/me'),
+  signup:      (name, email, password)   => call('/auth/signup', 'POST', { name, email, password }),
+  signin:      (email, password)          => call('/auth/signin', 'POST', { email, password }),
+  me:          ()                         => call('/auth/me'),
 
-  getMemory:     ()         => call('/memory'),
-  saveMemory:    (memory)   => call('/memory', 'PUT', memory),
-  saveProfile:   (profile)  => call('/memory/profile', 'PUT', { profile }),
+  getMemory:   (companion)               => call(`/memory?companion=${encodeURIComponent(companion || 'default')}`),
+  saveMemory:  (memory, companion)       => call('/memory', 'PUT', { ...memory, companion: companion || 'default' }),
+  saveProfile: (profile, companion)      => call('/memory/profile', 'PUT', { profile, companion: companion || 'default' }),
 
-  getMessages:   ()               => call('/messages'),
-  saveMessage:   (role, content)  => call('/messages', 'POST', { role, content }),
-  clearMessages: ()               => call('/messages', 'DELETE'),
+  getMessages:   (companion)             => call(`/messages?companion=${encodeURIComponent(companion || 'default')}`),
+  saveMessage:   (role, content, companion) => call('/messages', 'POST', { role, content, companion: companion || 'default' }),
+  clearMessages: (companion)             => call(`/messages?companion=${encodeURIComponent(companion || 'default')}`, 'DELETE'),
 
-  chat:          (messages, systemPrompt)  => call('/chat', 'POST', { messages, systemPrompt }),
+  chat:          (messages, systemPrompt) => call('/chat', 'POST', { messages, systemPrompt }),
   extractMemory: (userText, existingFacts) => call('/extract-memory', 'POST', { userText, existingFacts }),
 
-  testAI:        () => call('/test-ai'),  // for debugging
+  testAI: () => call('/test-ai'),
 };
 
 export { BASE };

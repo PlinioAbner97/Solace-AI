@@ -17,6 +17,22 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const inputRef = useRef(null);
   const navigate = useNavigate();
 
+  // Reload messages and memory whenever companion changes
+  useEffect(() => {
+    if (!companion?.name) return;
+    (async () => {
+      try {
+        const mem  = await api.getMemory(companion.name);
+        const { messages: msgs } = await api.getMessages(companion.name);
+        setMemory(mem);
+        setMessages(msgs);
+        setProfileForm(mem.profile || {});
+      } catch (e) {
+        console.warn('Failed to reload companion data:', e.message);
+      }
+    })();
+  }, [companion?.name]);
+
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, sending]);
 
   // accent color from companion
@@ -32,7 +48,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
 
     try {
       // Save user message
-      api.saveMessage('user', userMsg.content).catch(e => console.warn('Save user msg failed:', e.message));
+      api.saveMessage('user', userMsg.content, companion?.name).catch(e => console.warn('Save user msg failed:', e.message));
 
       const apiHistory = next.slice(-24).map(m => ({
         role: m.role === 'user' ? 'user' : 'assistant',
@@ -47,7 +63,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
       setMessages(final);
 
       // Save assistant message
-      api.saveMessage('assistant', reply).catch(e => console.warn('Save ai msg failed:', e.message));
+      api.saveMessage('assistant', reply, companion?.name).catch(e => console.warn('Save ai msg failed:', e.message));
 
       // Background memory extraction — never blocks chat
       extractAndSaveMemory(userMsg.content);
@@ -85,7 +101,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
         updated.timeline = [...updated.timeline, { date: todayStr(), content: extracted.milestone }].slice(-60);
       }
       setMemory(updated);
-      await api.saveMemory(updated);
+      await api.saveMemory(updated, companion?.name);
       console.log('Memory saved — facts:', updated.facts.length);
     } catch (e) {
       console.warn('Memory save failed:', e.message);
@@ -94,7 +110,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
 
   const saveProfile = async () => {
     try {
-      await api.saveProfile(profileForm);
+      await api.saveProfile(profileForm, companion?.name);
       setMemory(prev => ({ ...prev, profile: { ...prev.profile, ...profileForm } }));
       setSaveOk(true);
       setTimeout(() => setSaveOk(false), 2500);

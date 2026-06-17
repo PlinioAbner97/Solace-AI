@@ -41,11 +41,13 @@ async function initDB() {
       id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL)`);
     await client.execute(`CREATE TABLE IF NOT EXISTS user_memory (
-      user_id INTEGER PRIMARY KEY, profile TEXT DEFAULT '{}',
-      facts TEXT DEFAULT '[]', mood_history TEXT DEFAULT '[]',
-      timeline TEXT DEFAULT '[]', updated_at TEXT)`);
+      user_id INTEGER, companion TEXT NOT NULL DEFAULT 'default',
+      profile TEXT DEFAULT '{}', facts TEXT DEFAULT '[]',
+      mood_history TEXT DEFAULT '[]', timeline TEXT DEFAULT '[]', updated_at TEXT,
+      PRIMARY KEY (user_id, companion))`);
     await client.execute(`CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+      companion TEXT NOT NULL DEFAULT 'default',
       role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL)`);
     console.log('✦ Using Turso cloud database');
     return { type: 'turso', client };
@@ -60,11 +62,13 @@ async function initDB() {
         id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS user_memory (
-        user_id INTEGER PRIMARY KEY, profile TEXT DEFAULT '{}',
-        facts TEXT DEFAULT '[]', mood_history TEXT DEFAULT '[]',
-        timeline TEXT DEFAULT '[]', updated_at TEXT);
+        user_id INTEGER, companion TEXT NOT NULL DEFAULT 'default',
+        profile TEXT DEFAULT '{}', facts TEXT DEFAULT '[]',
+        mood_history TEXT DEFAULT '[]', timeline TEXT DEFAULT '[]', updated_at TEXT,
+        PRIMARY KEY (user_id, companion));
       CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+        companion TEXT NOT NULL DEFAULT 'default',
         role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL);
     `);
     console.log('✦ Using local SQLite:', DB_PATH);
@@ -167,7 +171,7 @@ app.post('/api/auth/signup', async (req, res) => {
   const hash = await bcrypt.hash(password, 10);
   const uid  = await DB.lastId('INSERT INTO users (name,email,password_hash,created_at) VALUES (?,?,?,?)', name, email, hash, today());
   const tl   = JSON.stringify([{ date: today(), content: `${name} began their journey with Solace`, detail: 'First day' }]);
-  await DB.run('INSERT INTO user_memory (user_id,timeline,updated_at) VALUES (?,?,?)', uid, tl, today());
+  await DB.run('INSERT INTO user_memory (user_id,companion,timeline,updated_at) VALUES (?,?,?,?)', uid, 'default', tl, today());
   const token = jwt.sign({ id: uid, email, name }, SECRET, { expiresIn: '30d' });
   console.log('Signup:', email);
   res.json({ token, user: { id: uid, name, email, createdAt: today() } });
@@ -192,7 +196,8 @@ app.get('/api/auth/me', auth, async (req, res) => {
 
 // ── MEMORY ────────────────────────────────────────────────────────────────────
 app.get('/api/memory', auth, async (req, res) => {
-  const row = await DB.get('SELECT * FROM user_memory WHERE user_id = ?', req.user.id);
+  const companion = req.query.companion || 'default';
+  const row = await DB.get('SELECT * FROM user_memory WHERE user_id = ? AND companion = ?', req.user.id, companion);
   if (!row) return res.json({ profile:{}, facts:[], moodHistory:[], timeline:[] });
   res.json({
     profile:     JSON.parse(row.profile      || '{}'),
@@ -203,40 +208,46 @@ app.get('/api/memory', auth, async (req, res) => {
 });
 
 app.put('/api/memory', auth, async (req, res) => {
-  const { profile, facts, moodHistory, timeline } = req.body;
-  await DB.run(`INSERT INTO user_memory (user_id,profile,facts,mood_history,timeline,updated_at) VALUES (?,?,?,?,?,?)
-    ON CONFLICT(user_id) DO UPDATE SET profile=excluded.profile,facts=excluded.facts,
+  const { profile, facts, moodHistory, timeline, companion } = req.body;
+  const comp = companion || 'default';
+  await DB.run(`INSERT INTO user_memory (user_id,companion,profile,facts,mood_history,timeline,updated_at) VALUES (?,?,?,?,?,?,?)
+    ON CONFLICT(user_id,companion) DO UPDATE SET profile=excluded.profile,facts=excluded.facts,
     mood_history=excluded.mood_history,timeline=excluded.timeline,updated_at=excluded.updated_at`,
-    req.user.id, JSON.stringify(profile||{}), JSON.stringify(facts||[]),
+    req.user.id, comp, JSON.stringify(profile||{}), JSON.stringify(facts||[]),
     JSON.stringify(moodHistory||[]), JSON.stringify(timeline||[]), new Date().toISOString());
   res.json({ ok: true });
 });
 
 app.put('/api/memory/profile', auth, async (req, res) => {
-  const { profile } = req.body;
-  const row     = await DB.get('SELECT profile FROM user_memory WHERE user_id = ?', req.user.id);
+  const { profile, companion } = req.body;
+  const comp = companion || 'default';
+  const row     = await DB.get('SELECT profile FROM user_memory WHERE user_id = ? AND companion = ?', req.user.id, comp);
   const current = row ? JSON.parse(row.profile || '{}') : {};
   const updated = { ...current, ...profile };
-  await DB.run('UPDATE user_memory SET profile=?,updated_at=? WHERE user_id=?',
-    JSON.stringify(updated), new Date().toISOString(), req.user.id);
+  await DB.run(`INSERT INTO user_memory (user_id,companion,profile,updated_at) VALUES (?,?,?,?)
+    ON CONFLICT(user_id,companion) DO UPDATE SET profile=excluded.profile,updated_at=excluded.updated_at`,
+    req.user.id, comp, JSON.stringify(updated), new Date().toISOString());
   res.json({ ok: true, profile: updated });
 });
 
 // ── MESSAGES ──────────────────────────────────────────────────────────────────
 app.get('/api/messages', auth, async (req, res) => {
-  const rows = await DB.all('SELECT role,content,created_at FROM messages WHERE user_id=? ORDER BY id ASC LIMIT 80', req.user.id);
+  const companion = req.query.companion || 'default';
+  const rows = await DB.all('SELECT role,content,created_at FROM messages WHERE user_id=? AND companion=? ORDER BY id ASC LIMIT 80', req.user.id, companion);
   res.json({ messages: rows.map(r => ({ role:r.role, content:r.content, time: new Date(r.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) })) });
 });
 
 app.post('/api/messages', auth, async (req, res) => {
-  const { role, content } = req.body;
+  const { role, content, companion } = req.body;
   if (!role || !content) return res.status(400).json({ error: 'role and content required' });
-  await DB.run('INSERT INTO messages (user_id,role,content,created_at) VALUES (?,?,?,?)', req.user.id, role, content, new Date().toISOString());
+  const comp = companion || 'default';
+  await DB.run('INSERT INTO messages (user_id,companion,role,content,created_at) VALUES (?,?,?,?,?)', req.user.id, comp, role, content, new Date().toISOString());
   res.json({ ok: true });
 });
 
 app.delete('/api/messages', auth, async (req, res) => {
-  await DB.run('DELETE FROM messages WHERE user_id=?', req.user.id);
+  const companion = req.query.companion || 'default';
+  await DB.run('DELETE FROM messages WHERE user_id=? AND companion=?', req.user.id, companion);
   res.json({ ok: true });
 });
 

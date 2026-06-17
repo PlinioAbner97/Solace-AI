@@ -16,14 +16,14 @@ export default function PickCompanion({ onCompanionPicked }) {
     if (!selected) return;
     setLoading(true);
     try {
-      // Save companion choice to profile
+      // Save companion choice to the companion's own profile slot
       await api.saveProfile({
-        companionName: selected.name,
+        companionName:   selected.name,
         companionGender: gender,
-        companionEmoji: selected.emoji,
-        companionTrait: selected.trait,
+        companionEmoji:  selected.emoji,
+        companionTrait:  selected.trait,
         companionAccent: selected.accent,
-      });
+      }, selected.name);
       onCompanionPicked(selected, gender);
       navigate('/app');
     } catch (e) {

@@ -23,11 +23,13 @@ export default function App() {
       if (!token) { setStatus('guest'); return; }
       try {
         const { user: u } = await api.me();
-        const mem = await api.getMemory();
-        const { messages: msgs } = await api.getMessages();
+        const mem = await api.getMemory('default');
+        const compName = mem?.profile?.companionName || 'default';
+        const memFinal = compName !== 'default' ? await api.getMemory(compName) : mem;
+        const { messages: msgs } = await api.getMessages(compName);
 
         setUser(u);
-        setMemory(mem);
+        setMemory(memFinal);
         setMessages(msgs);
 
         // Restore companion from saved profile
@@ -54,8 +56,10 @@ export default function App() {
     setStatus('auth');
     // Load memory and messages after login
     try {
-      const mem = await api.getMemory();
-      const { messages: msgs } = await api.getMessages();
+      const memDefault = await api.getMemory('default');
+      const compName = memDefault?.profile?.companionName || 'default';
+      const mem = compName !== 'default' ? await api.getMemory(compName) : memDefault;
+      const { messages: msgs } = await api.getMessages(compName);
       setMemory(mem);
       setMessages(msgs);
       setProfileForm(mem.profile || {});
@@ -75,11 +79,15 @@ export default function App() {
 
   const handleCompanionPicked = async (comp, gender) => {
     setCompanion({ ...comp, gender });
-    // Reload memory to get the saved companion profile
+    // Load THIS companion's own isolated memory and messages
     try {
-      const mem = await api.getMemory();
+      const mem  = await api.getMemory(comp.name);
+      const { messages: msgs } = await api.getMessages(comp.name);
       setMemory(mem);
-    } catch { /* silent */ }
+      setMessages(msgs);
+    } catch (e) {
+      console.warn('Failed to load companion data:', e.message);
+    }
   };
 
   const handleSignOut = () => {

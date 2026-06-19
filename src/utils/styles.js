@@ -455,14 +455,159 @@ export const globalCss = `
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
   @keyframes bounce { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-5px);} }
 
+  /* ════════════════════════════════════════════════════════════════
+     MOBILE STYLES — phones & small tablets (max-width: 768px)
+     ════════════════════════════════════════════════════════════════ */
   @media (max-width:768px) {
-    nav.home-nav { padding:18px 24px; }
-    nav.home-nav ul { display:none; }
-    .companions-grid,.features-row { grid-template-columns:1fr 1fr; }
-    .feat:nth-child(2){border-right:none;} .feat:nth-child(4){border-right:none;}
-    .auth-right { display:none; }
-    .picker-grid { grid-template-columns:1fr 1fr; }
-    .sidebar { display:none; }
-    footer { flex-direction:column; gap:16px; text-align:center; padding:32px 24px; }
+
+    /* ── Prevent horizontal scroll & fix tap highlight ── */
+    html, body { overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+    button, a { touch-action: manipulation; }
+
+    /* ── HOMEPAGE ── */
+    nav.home-nav { padding:14px 18px; }
+    nav.home-nav .nav-links { gap: 14px; }
+    nav.home-nav .nav-links li:not(:last-child) { display:none; }
+    .nav-logo { font-size: 19px; }
+
+    .hero { padding: 100px 18px 56px; min-height: auto; }
+    .hero h1 { font-size: clamp(36px, 11vw, 56px); }
+    .hero-sub { font-size: 15px; padding: 0 4px; }
+    .hero-actions { flex-direction: column; width: 100%; gap: 12px; }
+    .hero-actions a, .hero-actions button { width: 100%; justify-content: center; text-align:center; }
+    .chat-preview { margin-top: 48px; }
+    .chat-window { padding: 20px; border-radius: 18px; }
+
+    .section { padding: 64px 18px; }
+    .sec-title { font-size: clamp(28px, 8vw, 40px); }
+    .companions-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .comp-card { padding: 20px 12px; }
+    .comp-emoji { font-size: 28px; }
+    .comp-name { font-size: 17px; }
+
+    .features-strip .features-row { grid-template-columns: 1fr 1fr; }
+    .feat { padding: 28px 18px; border-bottom: 1px solid var(--border); }
+    .feat:nth-child(2n) { border-right: none; }
+    .feat:nth-child(3), .feat:nth-child(4) { border-bottom: none; }
+
+    .cta-section { padding: 80px 18px; }
+    .cta-section h2 { font-size: clamp(30px, 9vw, 44px); }
+    .cta-actions { flex-direction: column; gap: 12px; }
+    .cta-actions a, .cta-actions button { width: 100%; }
+
+    footer { flex-direction:column; gap:18px; text-align:center; padding:32px 20px; }
+    .footer-links { flex-wrap: wrap; justify-content: center; gap: 16px; }
+
+    /* ── AUTH PAGE ── */
+    .auth-page { flex-direction: column; }
+    .auth-left { padding: 48px 24px 24px; max-width: 100%; }
+    .auth-testimonial { display: none; }
+    .auth-right { display: flex; border-left: none; border-top: 1px solid var(--border); padding: 32px 24px 56px; }
+    .auth-form { max-width: 100%; }
+    .auth-form-title { font-size: 26px; }
+
+    /* ── COMPANION PICKER ── */
+    .picker-page { padding: 40px 16px; }
+    .picker-title { font-size: clamp(28px, 8vw, 40px); }
+    .picker-sub { font-size: 14px; padding: 0 8px; }
+    .gender-tabs { width: 100%; }
+    .gender-tab { flex: 1; padding: 11px 16px; font-size: 13px; text-align: center; }
+    .picker-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .picker-card { padding: 20px 12px; }
+    .picker-emoji { font-size: 30px; }
+    .picker-name { font-size: 17px; }
+    .picker-btn { width: 100%; padding: 16px; }
+
+    /* ── APP SHELL — sidebar becomes bottom tab bar ── */
+    .app-shell { flex-direction: column; height: 100dvh; }
+
+    .sidebar {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      min-width: 100%;
+      height: auto;
+      order: 2;
+      border-right: none;
+      border-top: 1px solid var(--border);
+      padding: 0;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 50;
+      background: var(--surface);
+    }
+    .sb-top, .sb-companion, .sb-stats, .sb-bottom { display: none; }
+    .sb-nav {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      padding: 6px 4px;
+      padding-bottom: max(6px, env(safe-area-inset-bottom));
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .sb-section { display: none; }
+    .sb-item {
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+      min-width: 64px;
+      padding: 7px 4px;
+      font-size: 10px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .sb-icon { font-size: 19px; width: auto; }
+
+    .main-area { order: 1; padding-bottom: 64px; height: calc(100dvh - 64px); }
+
+    /* ── CHAT VIEW ── */
+    .chat-top { padding: 12px 16px; }
+    .chat-comp-name { font-size: 17px; }
+    .chat-comp-av { width: 36px; height: 36px; font-size: 18px; }
+    .mode-btns { gap: 4px; }
+    .mode-btn { padding: 6px 9px; font-size: 11px; }
+    .mode-btn-label-text, .mode-label-text { display: none; } /* keep emoji only on small screens */
+    .mode-btn { padding: 8px 11px; }
+
+    .msgs-area { padding: 16px; }
+    .msg-bubble { max-width: 82%; font-size: 14px; padding: 11px 15px; }
+    .welcome-box { padding: 40px 20px; }
+    .welcome-icon { font-size: 38px; }
+    .welcome-title { font-size: 26px; }
+
+    .input-area { padding: 10px 12px 12px; }
+    .msg-input { font-size: 16px; padding: 11px 14px; min-height: 44px; } /* 16px prevents iOS zoom */
+    .send-btn { width: 44px; height: 44px; font-size: 18px; }
+    .input-hint { display: none; }
+
+    /* ── INNER VIEWS (memory, journal, profile) ── */
+    .inner-view { padding: 20px 16px 24px; }
+    .view-title { font-size: 26px; }
+    .view-sub { font-size: 13px; margin-bottom: 24px; }
+
+    .mem-grid { grid-template-columns: 1fr; gap: 14px; }
+    .mem-card { padding: 20px; }
+    .span2 { grid-column: span 1; }
+
+    .tl-wrap { padding-left: 26px; }
+    .tl-dot { left: -30px; }
+    .tl-content { font-size: 16px; }
+
+    .pf-form { max-width: 100%; }
+    .pf-input { font-size: 16px; } /* prevents iOS zoom on focus */
+
+    /* ── MODALS / CARDS GENERAL ── */
+    .modes-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     VERY SMALL PHONES (max-width: 380px)
+     ════════════════════════════════════════════════════════════════ */
+  @media (max-width: 380px) {
+    .companions-grid, .picker-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sb-item { min-width: 56px; font-size: 9px; }
+    .sb-icon { font-size: 17px; }
+    .msg-bubble { max-width: 88%; }
   }
 `;

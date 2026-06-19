@@ -132,10 +132,10 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   };
 
   const modes = [
-    { id: 'friend', label: '💬 Friend' },
-    { id: 'coach', label: '🎯 Coach' },
-    { id: 'deep', label: '🌙 Deep' },
-    { id: 'support', label: '🍃 Support' },
+    { id: 'friend',  emoji: '💬', label: 'Friend' },
+    { id: 'coach',   emoji: '🎯', label: 'Coach' },
+    { id: 'deep',    emoji: '🌙', label: 'Deep' },
+    { id: 'support', emoji: '🍃', label: 'Support' },
   ];
 
   return (
@@ -237,7 +237,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                     <button key={m.id} className={`mode-btn${mode === m.id ? ' active' : ''}`}
                       style={mode === m.id ? { borderColor: `${accent}66`, background: `${accent}14`, color: accent } : {}}
                       onClick={() => setMode(m.id)}>
-                      {m.label}
+                      {m.emoji} <span className="mode-label-text">{m.label}</span>
                     </button>
                   ))}
                 </div>

@@ -49,6 +49,35 @@ async function initDB() {
       id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
       companion TEXT NOT NULL DEFAULT 'default',
       role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL)`);
+
+    // ── AUTO-MIGRATION: detect old schema (no companion column) and rebuild ──
+    try {
+      const cols = await client.execute(`PRAGMA table_info(user_memory)`);
+      const hasCompanion = cols.rows.some(r => r.name === 'companion');
+      if (!hasCompanion) {
+        console.log('⚠ Old schema detected — migrating user_memory table...');
+        await client.execute(`ALTER TABLE user_memory RENAME TO user_memory_old`);
+        await client.execute(`CREATE TABLE user_memory (
+          user_id INTEGER, companion TEXT NOT NULL DEFAULT 'default',
+          profile TEXT DEFAULT '{}', facts TEXT DEFAULT '[]',
+          mood_history TEXT DEFAULT '[]', timeline TEXT DEFAULT '[]', updated_at TEXT,
+          PRIMARY KEY (user_id, companion))`);
+        await client.execute(`INSERT INTO user_memory (user_id, companion, profile, facts, mood_history, timeline, updated_at)
+          SELECT user_id, 'default', profile, facts, mood_history, timeline, updated_at FROM user_memory_old`);
+        await client.execute(`DROP TABLE user_memory_old`);
+        console.log('✦ user_memory migrated successfully');
+      }
+      const msgCols = await client.execute(`PRAGMA table_info(messages)`);
+      const msgHasCompanion = msgCols.rows.some(r => r.name === 'companion');
+      if (!msgHasCompanion) {
+        console.log('⚠ Old schema detected — migrating messages table...');
+        await client.execute(`ALTER TABLE messages ADD COLUMN companion TEXT NOT NULL DEFAULT 'default'`);
+        console.log('✦ messages migrated successfully');
+      }
+    } catch (migErr) {
+      console.error('Migration check failed (non-fatal):', migErr.message);
+    }
+
     console.log('✦ Using Turso cloud database');
     return { type: 'turso', client };
   } else {
@@ -219,15 +248,20 @@ app.put('/api/memory', auth, async (req, res) => {
 });
 
 app.put('/api/memory/profile', auth, async (req, res) => {
-  const { profile, companion } = req.body;
-  const comp = companion || 'default';
-  const row     = await DB.get('SELECT profile FROM user_memory WHERE user_id = ? AND companion = ?', req.user.id, comp);
-  const current = row ? JSON.parse(row.profile || '{}') : {};
-  const updated = { ...current, ...profile };
-  await DB.run(`INSERT INTO user_memory (user_id,companion,profile,updated_at) VALUES (?,?,?,?)
-    ON CONFLICT(user_id,companion) DO UPDATE SET profile=excluded.profile,updated_at=excluded.updated_at`,
-    req.user.id, comp, JSON.stringify(updated), new Date().toISOString());
-  res.json({ ok: true, profile: updated });
+  try {
+    const { profile, companion } = req.body;
+    const comp = companion || 'default';
+    const row     = await DB.get('SELECT profile FROM user_memory WHERE user_id = ? AND companion = ?', req.user.id, comp);
+    const current = row ? JSON.parse(row.profile || '{}') : {};
+    const updated = { ...current, ...profile };
+    await DB.run(`INSERT INTO user_memory (user_id,companion,profile,updated_at) VALUES (?,?,?,?)
+      ON CONFLICT(user_id,companion) DO UPDATE SET profile=excluded.profile,updated_at=excluded.updated_at`,
+      req.user.id, comp, JSON.stringify(updated), new Date().toISOString());
+    res.json({ ok: true, profile: updated });
+  } catch (e) {
+    console.error('Save profile error:', e.message);
+    res.status(500).json({ error: 'Failed to save profile: ' + e.message });
+  }
 });
 
 // ── MESSAGES ──────────────────────────────────────────────────────────────────

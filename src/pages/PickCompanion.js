@@ -8,6 +8,7 @@ export default function PickCompanion({ onCompanionPicked }) {
   const [gender, setGender] = useState('female');
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const pool = gender === 'female' ? FEMALE_COMPANIONS : MALE_COMPANIONS;
@@ -15,8 +16,8 @@ export default function PickCompanion({ onCompanionPicked }) {
   const confirm = async () => {
     if (!selected) return;
     setLoading(true);
+    setError('');
     try {
-      // Save companion choice to the companion's own profile slot
       await api.saveProfile({
         companionName:   selected.name,
         companionGender: gender,
@@ -27,8 +28,8 @@ export default function PickCompanion({ onCompanionPicked }) {
       onCompanionPicked(selected, gender);
       navigate('/app');
     } catch (e) {
-      console.error(e);
-    } finally {
+      console.error('Companion pick failed:', e);
+      setError(e.message || 'Something went wrong. Please try again.');
       setLoading(false);
     }
   };
@@ -81,6 +82,9 @@ export default function PickCompanion({ onCompanionPicked }) {
           })}
         </div>
 
+        {error && (
+          <p style={{ color: 'var(--rose)', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>{error}</p>
+        )}
         <button className="picker-btn" onClick={confirm} disabled={!selected || loading}>
           {loading ? 'Setting up your companion…' : selected ? `Start with ${selected.name} →` : 'Select a companion'}
         </button>

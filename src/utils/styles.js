@@ -546,7 +546,7 @@ export const globalCss = `
 
     .sidebar {
       display: flex;
-      flex-direction: row;
+      flex-direction: column;
       width: 100%;
       min-width: 100%;
       height: auto;
@@ -558,8 +558,9 @@ export const globalCss = `
       bottom: 0; left: 0; right: 0;
       z-index: 50;
       background: var(--surface);
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.25);
     }
-    .sb-top, .sb-companion, .sb-stats, .sb-bottom { display: none; }
+    .sb-top, .sb-companion, .sb-stats { display: none; }
     .sb-nav {
       flex: 1;
       display: flex;
@@ -568,30 +569,66 @@ export const globalCss = `
       padding-bottom: max(6px, env(safe-area-inset-bottom));
       overflow-x: auto;
       overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
     }
     .sb-section { display: none; }
     .sb-item {
       flex-direction: column;
       gap: 3px;
       flex: 1;
-      min-width: 64px;
-      padding: 7px 4px;
-      font-size: 10px;
+      min-width: 60px;
+      padding: 7px 3px;
+      font-size: 9.5px;
       text-align: center;
       white-space: nowrap;
     }
-    .sb-icon { font-size: 19px; width: auto; }
+    .sb-icon { font-size: 18px; width: auto; }
 
-    .main-area { order: 1; padding-bottom: 64px; height: calc(100dvh - 64px); }
+    /* Bottom bar also holds Change Companion + Sign Out as regular tabs on mobile */
+    .sb-bottom {
+      display: flex;
+      flex-direction: row;
+      padding: 4px 4px 6px;
+      padding-bottom: max(6px, env(safe-area-inset-bottom));
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sb-change-comp, .sb-signout {
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+      min-width: 60px;
+      padding: 7px 3px;
+      font-size: 9.5px;
+      text-align: center;
+      white-space: nowrap;
+      align-items: center;
+      justify-content: center;
+    }
+    .sb-change-comp-emoji, .sb-signout-emoji { font-size: 18px; }
 
-    /* ── CHAT VIEW ── */
-    .chat-top { padding: 12px 16px; }
+    .main-area { order: 1; padding-bottom: 116px; height: calc(100dvh - 116px); }
+
+    /* ── CHAT VIEW — mode tabs scroll horizontally, labels visible ── */
+    .chat-top { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
     .chat-comp-name { font-size: 17px; }
     .chat-comp-av { width: 36px; height: 36px; font-size: 18px; }
-    .mode-btns { gap: 4px; }
-    .mode-btn { padding: 6px 9px; font-size: 11px; }
-    .mode-btn-label-text, .mode-label-text { display: none; } /* keep emoji only on small screens */
-    .mode-btn { padding: 8px 11px; }
+    .mode-btns {
+      gap: 6px;
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 2px;
+    }
+    .mode-btn {
+      padding: 7px 12px;
+      font-size: 12px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .mode-label-text { display: inline; } /* show labels on mobile — scroll instead of hiding */
 
     .msgs-area { padding: 16px; }
     .msg-bubble { max-width: 82%; font-size: 14px; padding: 11px 15px; }

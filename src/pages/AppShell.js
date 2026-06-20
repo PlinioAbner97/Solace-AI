@@ -207,10 +207,12 @@ export default function AppShell({ user, companion, memory: initMemory, messages
 
           <div className="sb-bottom">
             <button className="sb-change-comp" onClick={handleChangeCompanion}>
-              {t('sb_changeCompanion')}
+              <span className="sb-change-comp-emoji">🔄</span>
+              <span>{t('sb_changeCompanion').replace('🔄 ', '')}</span>
             </button>
             <button className="sb-signout" onClick={handleSignOut}>
-              {t('sb_signOut')}
+              <span className="sb-signout-emoji">↩</span>
+              <span>{t('sb_signOut').replace('↩ ', '')}</span>
             </button>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
 import { globalCss } from '../utils/styles';
 import { buildSystemPrompt, todayStr, nowTime, initials } from '../utils/companions';
+import { useLanguage } from '../utils/LanguageContext';
 
 export default function AppShell({ user, companion, memory: initMemory, messages: initMessages, onSignOut, onChangeCompanion }) {
   const [view, setView] = useState('chat');
@@ -16,6 +17,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const navigate = useNavigate();
+  const { t, lang, setLang } = useLanguage();
 
   // Reload messages and memory whenever companion changes
   useEffect(() => {
@@ -35,7 +37,6 @@ export default function AppShell({ user, companion, memory: initMemory, messages
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, sending]);
 
-  // accent color from companion
   const accent = companion?.accent || 'var(--amber)';
 
   const sendMessage = useCallback(async () => {
@@ -47,7 +48,6 @@ export default function AppShell({ user, companion, memory: initMemory, messages
     setSending(true);
 
     try {
-      // Save user message
       api.saveMessage('user', userMsg.content, companion?.name).catch(e => console.warn('Save user msg failed:', e.message));
 
       const apiHistory = next.slice(-24).map(m => ({
@@ -55,32 +55,30 @@ export default function AppShell({ user, companion, memory: initMemory, messages
         content: m.content,
       }));
 
-      const systemPrompt = buildSystemPrompt(user, memory, companion, mode);
+      // Pass the current language so the companion replies in the right one
+      const systemPrompt = buildSystemPrompt(user, memory, companion, mode, lang);
       const { reply } = await api.chat(apiHistory, systemPrompt);
 
       const aiMsg = { role: 'assistant', content: reply, time: nowTime() };
       const final = [...next, aiMsg];
       setMessages(final);
 
-      // Save assistant message
       api.saveMessage('assistant', reply, companion?.name).catch(e => console.warn('Save ai msg failed:', e.message));
 
-      // Background memory extraction — never blocks chat
       extractAndSaveMemory(userMsg.content);
     } catch (e) {
       console.error('Chat error:', e.message);
-      // Show the REAL error so user knows what happened
-      const errText = e.message?.includes('OPENROUTER') || e.message?.includes('AI')
-        ? `AI error: ${e.message}`
+      const errText = e.message?.includes('GROQ') || e.message?.includes('AI')
+        ? `${t('chat_errorGoneWrong')}: ${e.message}`
         : e.message?.includes('Network') || e.message?.includes('reach')
-        ? 'Cannot reach server — please check your connection.'
-        : `Something went wrong: ${e.message}`;
+        ? t('chat_errorNetwork')
+        : `${t('chat_errorGoneWrong')}: ${e.message}`;
       setMessages(prev => [...prev, { role: 'assistant', content: errText, time: nowTime() }]);
     } finally {
       setSending(false);
       inputRef.current?.focus();
     }
-  }, [input, sending, messages, user, memory, companion, mode]);
+  }, [input, sending, messages, user, memory, companion, mode, lang]);
 
   const extractAndSaveMemory = async (userText) => {
     try {
@@ -102,7 +100,6 @@ export default function AppShell({ user, companion, memory: initMemory, messages
       }
       setMemory(updated);
       await api.saveMemory(updated, companion?.name);
-      console.log('Memory saved — facts:', updated.facts.length);
     } catch (e) {
       console.warn('Memory save failed:', e.message);
     }
@@ -127,16 +124,16 @@ export default function AppShell({ user, companion, memory: initMemory, messages
     navigate('/');
   };
 
-  const handleChangeCompanion = () => {
-    navigate('/pick-companion');
-  };
+  const handleChangeCompanion = () => navigate('/pick-companion');
 
   const modes = [
-    { id: 'friend',  emoji: '💬', label: 'Friend' },
-    { id: 'coach',   emoji: '🎯', label: 'Coach' },
-    { id: 'deep',    emoji: '🌙', label: 'Deep' },
-    { id: 'support', emoji: '🍃', label: 'Support' },
+    { id: 'friend',  emoji: '💬', label: t('mode_friend') },
+    { id: 'coach',   emoji: '🎯', label: t('mode_coach') },
+    { id: 'deep',    emoji: '🌙', label: t('mode_deep') },
+    { id: 'support', emoji: '🍃', label: t('mode_support') },
   ];
+
+  const compName = companion?.name || 'Solace';
 
   return (
     <>
@@ -153,7 +150,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
               </div>
               <div>
                 <div className="sb-uname">{user?.name}</div>
-                <div className="sb-since">Since {user?.createdAt}</div>
+                <div className="sb-since">{t('sb_since')} {user?.createdAt}</div>
               </div>
             </div>
           </div>
@@ -165,50 +162,55 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                 <div className="sb-comp-name">{companion.name}</div>
                 <div className="sb-comp-online">
                   <div className="sb-comp-dot" style={{ background: 'var(--green)', boxShadow: '0 0 5px var(--green)' }} />
-                  Always here
+                  {t('sb_alwaysHere')}
                 </div>
               </div>
             </div>
           )}
 
           <div className="sb-nav">
-            <div className="sb-section">Companion</div>
+            <div className="sb-section">{t('sb_companion')}</div>
             <button className={`sb-item${view === 'chat' ? ' active' : ''}`} onClick={() => setView('chat')}>
-              <span className="sb-icon">✦</span> Chat with {companion?.name || 'Solace'}
+              <span className="sb-icon">✦</span> {t('sb_chatWith')} {compName}
             </button>
 
-            <div className="sb-section">Your Story</div>
+            <div className="sb-section">{t('sb_yourStory')}</div>
             <button className={`sb-item${view === 'memory' ? ' active' : ''}`} onClick={() => setView('memory')}>
-              <span className="sb-icon">🧠</span> Memory & Facts
+              <span className="sb-icon">🧠</span> {t('sb_memoryFacts')}
             </button>
             <button className={`sb-item${view === 'journal' ? ' active' : ''}`} onClick={() => setView('journal')}>
-              <span className="sb-icon">📖</span> Life Journal
+              <span className="sb-icon">📖</span> {t('sb_lifeJournal')}
             </button>
 
-            <div className="sb-section">You</div>
+            <div className="sb-section">{t('sb_you')}</div>
             <button className={`sb-item${view === 'profile' ? ' active' : ''}`} onClick={() => setView('profile')}>
-              <span className="sb-icon">🌱</span> Your Profile
+              <span className="sb-icon">🌱</span> {t('sb_yourProfile')}
             </button>
 
             <div className="sb-stats">
-              <div className="sb-stats-label">Memory Stats</div>
+              <div className="sb-stats-label">{t('sb_memoryStats')}</div>
               <div className="sb-stats-row">
-                <div>💡 {memory?.facts?.length || 0} facts learned</div>
-                <div>📝 {memory?.timeline?.length || 0} milestones</div>
-                <div>💬 {messages.length} messages</div>
+                <div>💡 {memory?.facts?.length || 0} {t('sb_factsLearned')}</div>
+                <div>📝 {memory?.timeline?.length || 0} {t('sb_milestones')}</div>
+                <div>💬 {messages.length} {t('sb_messages')}</div>
               </div>
               <div className="prog-bar" style={{ marginTop: 10 }}>
                 <div className="prog-fill" style={{ width: `${Math.min(100, ((memory?.facts?.length || 0) / 20) * 100)}%` }} />
               </div>
             </div>
+
+            <div className="lang-switch-sidebar">
+              <button className={`lang-btn${lang === 'en' ? ' active' : ''}`} onClick={() => setLang('en')}>EN</button>
+              <button className={`lang-btn${lang === 'es' ? ' active' : ''}`} onClick={() => setLang('es')}>ES</button>
+            </div>
           </div>
 
           <div className="sb-bottom">
             <button className="sb-change-comp" onClick={handleChangeCompanion}>
-              🔄 Change Companion
+              {t('sb_changeCompanion')}
             </button>
             <button className="sb-signout" onClick={handleSignOut}>
-              ↩ Sign Out
+              {t('sb_signOut')}
             </button>
           </div>
         </div>
@@ -225,10 +227,10 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                     {companion?.emoji || '✦'}
                   </div>
                   <div>
-                    <div className="chat-comp-name">{companion?.name || 'Solace'}</div>
+                    <div className="chat-comp-name">{compName}</div>
                     <div className="chat-comp-status">
                       <div className="status-dot" style={{ background: 'var(--green)', boxShadow: '0 0 6px var(--green)' }} />
-                      <span style={{ color: 'var(--green)' }}>Always here for you</span>
+                      <span style={{ color: 'var(--green)' }}>{t('chat_alwaysHereForYou')}</span>
                     </div>
                   </div>
                 </div>
@@ -247,11 +249,8 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                 {messages.length === 0 && (
                   <div className="welcome-box">
                     <div className="welcome-icon">{companion?.emoji || '✦'}</div>
-                    <div className="welcome-title">Hello, <em>{user?.name}</em></div>
-                    <p className="welcome-body">
-                      I'm {companion?.name || 'Solace'} — your companion. I'm here to listen,
-                      remember, and grow alongside you. What's on your mind today?
-                    </p>
+                    <div className="welcome-title">{t('chat_welcomeHello')} <em>{user?.name}</em></div>
+                    <p className="welcome-body">{t('chat_welcomeBody')}</p>
                   </div>
                 )}
 
@@ -280,7 +279,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
               <div className="input-area">
                 <div className="input-row">
                   <textarea ref={inputRef} className="msg-input"
-                    placeholder={`Talk to ${companion?.name || 'Solace'}…`}
+                    placeholder={`${t('chat_talkTo')} ${compName}…`}
                     value={input} onChange={e => setInput(e.target.value)}
                     onKeyDown={onKeyDown} rows={1} />
                   <button className="send-btn" onClick={sendMessage} disabled={sending || !input.trim()}
@@ -288,7 +287,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                     ↑
                   </button>
                 </div>
-                <div className="input-hint">Enter to send · Shift+Enter for new line</div>
+                <div className="input-hint">{t('chat_inputHint')}</div>
               </div>
             </div>
           )}
@@ -296,20 +295,20 @@ export default function AppShell({ user, companion, memory: initMemory, messages
           {/* ── MEMORY ── */}
           {view === 'memory' && (
             <div className="inner-view">
-              <div className="view-title">What <em>{companion?.name || 'Solace'}</em> remembers</div>
-              <p className="view-sub">Facts and patterns learned about you from your conversations.</p>
+              <div className="view-title">{t('memory_title_1')} <em>{compName}</em> {t('memory_title_em')}</div>
+              <p className="view-sub">{t('memory_sub')}</p>
               <div className="mem-grid">
                 {(!memory?.facts || memory.facts.length === 0) ? (
                   <div className="empty-box span2">
                     <div className="empty-icon">🌱</div>
-                    <div className="empty-title">Your memory is just beginning to grow</div>
-                    <div className="empty-hint">Start a conversation and {companion?.name} will start to know you.</div>
+                    <div className="empty-title">{t('memory_emptyTitle')}</div>
+                    <div className="empty-hint">{t('memory_emptyHint', { name: compName })}</div>
                   </div>
                 ) : (
                   <>
                     <div className="mem-card span2">
                       <div className="mc-icon">💡</div>
-                      <div className="mc-title">Things {companion?.name} knows about you</div>
+                      <div className="mc-title">{t('memory_knowsTitle', { name: compName })}</div>
                       <div style={{ marginTop: 8 }}>
                         {memory.facts.map((f, i) => (
                           <span key={i} className={`mtag ${i % 3 === 0 ? 'ta' : i % 3 === 1 ? 'tr' : 'tl'}`}>{f}</span>
@@ -319,7 +318,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                     {memory.moodHistory?.length > 0 && (
                       <div className="mem-card">
                         <div className="mc-icon">🌊</div>
-                        <div className="mc-title">Recent Moods</div>
+                        <div className="mc-title">{t('memory_recentMoods')}</div>
                         <div style={{ marginTop: 8 }}>
                           {memory.moodHistory.slice(-10).map((m, i) => (
                             <span key={i} className="mtag tr">{m.mood}</span>
@@ -329,15 +328,15 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                     )}
                     <div className="mem-card">
                       <div className="mc-icon">📊</div>
-                      <div className="mc-title">Connection Depth</div>
+                      <div className="mc-title">{t('memory_connectionDepth')}</div>
                       <div className="mc-body">
-                        {memory.facts.length < 5  ? 'Just getting to know you — keep talking!' :
-                         memory.facts.length < 15 ? 'Building a real picture of who you are.' :
-                                                    `${companion?.name} knows you deeply. Your story is rich and detailed.`}
+                        {memory.facts.length < 5  ? t('memory_depth_low') :
+                         memory.facts.length < 15 ? t('memory_depth_mid') :
+                                                    t('memory_depth_high', { name: compName })}
                         <div className="prog-bar" style={{ marginTop: 12 }}>
                           <div className="prog-fill" style={{ width: `${Math.min(100, (memory.facts.length / 20) * 100)}%` }} />
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{memory.facts.length} / 20+ facts</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{memory.facts.length} / 20+ {t('memory_factsCount')}</div>
                       </div>
                     </div>
                   </>
@@ -349,13 +348,13 @@ export default function AppShell({ user, companion, memory: initMemory, messages
           {/* ── JOURNAL ── */}
           {view === 'journal' && (
             <div className="inner-view">
-              <div className="view-title">Your <em>Life Journal</em></div>
-              <p className="view-sub">Milestones and meaningful moments witnessed in your journey together.</p>
+              <div className="view-title">{t('journal_title_1')} <em>{t('journal_title_em')}</em></div>
+              <p className="view-sub">{t('journal_sub')}</p>
               {(!memory?.timeline || memory.timeline.length === 0) ? (
                 <div className="empty-box">
                   <div className="empty-icon">📖</div>
-                  <div className="empty-title">Your story is just beginning</div>
-                  <div className="empty-hint">Milestones appear here as {companion?.name} gets to know you.</div>
+                  <div className="empty-title">{t('journal_emptyTitle')}</div>
+                  <div className="empty-hint">{t('journal_emptyHint', { name: compName })}</div>
                 </div>
               ) : (
                 <div className="tl-wrap">
@@ -375,13 +374,13 @@ export default function AppShell({ user, companion, memory: initMemory, messages
           {/* ── PROFILE ── */}
           {view === 'profile' && (
             <div className="inner-view">
-              <div className="view-title">Tell <em>{companion?.name || 'Solace'}</em> about you</div>
-              <p className="view-sub">This context shapes every conversation — help your companion know you better right from the start.</p>
+              <div className="view-title">{t('profile_title_1')} <em>{compName}</em> {t('profile_title_em')}</div>
+              <p className="view-sub">{t('profile_sub')}</p>
               <div className="pf-form">
                 {[
-                  { key: 'age',        label: 'Age',             placeholder: 'e.g. 28' },
-                  { key: 'occupation', label: 'What do you do?', placeholder: 'e.g. Teacher, designer, student…' },
-                  { key: 'location',   label: 'Where are you based?', placeholder: 'e.g. Brooklyn, NY' },
+                  { key: 'age',        label: t('profile_age'),        placeholder: t('profile_agePlaceholder') },
+                  { key: 'occupation', label: t('profile_occupation'), placeholder: t('profile_occupationPlaceholder') },
+                  { key: 'location',   label: t('profile_location'),   placeholder: t('profile_locationPlaceholder') },
                 ].map(f => (
                   <div key={f.key} className="pf-field">
                     <label className="pf-label">{f.label}</label>
@@ -391,16 +390,16 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                   </div>
                 ))}
                 <div className="pf-field">
-                  <label className="pf-label">Anything you want {companion?.name} to know about you?</label>
+                  <label className="pf-label">{t('profile_aboutLabel', { name: compName })}</label>
                   <textarea className="pf-input" rows={4}
-                    placeholder="Your goals, struggles, what matters to you…"
+                    placeholder={t('profile_aboutPlaceholder')}
                     value={profileForm.about || ''}
                     onChange={e => setProfileForm(p => ({ ...p, about: e.target.value }))}
                     style={{ resize: 'vertical' }} />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <button className="save-btn" onClick={saveProfile}>Save Profile</button>
-                  {saveOk && <span className="save-ok">✓ Saved</span>}
+                  <button className="save-btn" onClick={saveProfile}>{t('profile_save')}</button>
+                  {saveOk && <span className="save-ok">{t('profile_saved')}</span>}
                 </div>
               </div>
             </div>

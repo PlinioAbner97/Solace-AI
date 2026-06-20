@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
 import { globalCss } from '../utils/styles';
 import { FEMALE_COMPANIONS, MALE_COMPANIONS } from '../utils/companions';
+import { useLanguage } from '../utils/LanguageContext';
 
 export default function PickCompanion({ onCompanionPicked }) {
   const [gender, setGender] = useState('female');
@@ -10,6 +11,7 @@ export default function PickCompanion({ onCompanionPicked }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { t, lang, setLang } = useLanguage();
 
   const pool = gender === 'female' ? FEMALE_COMPANIONS : MALE_COMPANIONS;
 
@@ -38,13 +40,15 @@ export default function PickCompanion({ onCompanionPicked }) {
     <>
       <style>{globalCss}</style>
       <div className="picker-page">
-        <div className="picker-title">
-          Choose your <em>companion</em>
+        <div className="lang-switch" style={{ marginBottom: 24 }}>
+          <button className={`lang-btn${lang === 'en' ? ' active' : ''}`} onClick={() => setLang('en')}>EN</button>
+          <button className={`lang-btn${lang === 'es' ? ' active' : ''}`} onClick={() => setLang('es')}>ES</button>
         </div>
-        <p className="picker-sub">
-          This is the friend who will be here for you — every day, every conversation.
-          Pick the one whose energy feels right.
-        </p>
+
+        <div className="picker-title">
+          {t('picker_title_1')} <em>{t('picker_title_em')}</em>
+        </div>
+        <p className="picker-sub">{t('picker_sub')}</p>
 
         {/* Gender tabs */}
         <div className="gender-tabs">
@@ -52,13 +56,13 @@ export default function PickCompanion({ onCompanionPicked }) {
             className={`gender-tab${gender === 'female' ? ' active-f' : ''}`}
             onClick={() => { setGender('female'); setSelected(null); }}
           >
-            ♀ Female Companions
+            {t('picker_female')}
           </button>
           <button
             className={`gender-tab${gender === 'male' ? ' active-m' : ''}`}
             onClick={() => { setGender('male'); setSelected(null); }}
           >
-            ♂ Male Companions
+            {t('picker_male')}
           </button>
         </div>
 
@@ -66,6 +70,7 @@ export default function PickCompanion({ onCompanionPicked }) {
         <div className="picker-grid">
           {pool.map((c, i) => {
             const isSelected = selected?.name === c.name;
+            const traitKey = `companion_${c.name.toLowerCase()}`;
             return (
               <div
                 key={i}
@@ -75,7 +80,7 @@ export default function PickCompanion({ onCompanionPicked }) {
               >
                 <span className="picker-emoji">{c.emoji}</span>
                 <div className="picker-name">{c.name}</div>
-                <div className="picker-trait">{c.trait}</div>
+                <div className="picker-trait">{t(traitKey)}</div>
                 <span className="picker-check">{isSelected ? '✦' : ''}</span>
               </div>
             );
@@ -86,7 +91,7 @@ export default function PickCompanion({ onCompanionPicked }) {
           <p style={{ color: 'var(--rose)', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>{error}</p>
         )}
         <button className="picker-btn" onClick={confirm} disabled={!selected || loading}>
-          {loading ? 'Setting up your companion…' : selected ? `Start with ${selected.name} →` : 'Select a companion'}
+          {loading ? t('picker_loading') : selected ? `${t('picker_start')} ${selected.name} →` : t('picker_select')}
         </button>
       </div>
     </>

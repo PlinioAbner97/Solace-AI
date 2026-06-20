@@ -2,6 +2,17 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../utils/api';
 import { globalCss } from '../utils/styles';
+import { useLanguage } from '../utils/LanguageContext';
+
+function LangSwitch() {
+  const { lang, setLang } = useLanguage();
+  return (
+    <div className="lang-switch" style={{ marginBottom: 24 }}>
+      <button className={`lang-btn${lang === 'en' ? ' active' : ''}`} onClick={() => setLang('en')}>EN</button>
+      <button className={`lang-btn${lang === 'es' ? ' active' : ''}`} onClick={() => setLang('es')}>ES</button>
+    </div>
+  );
+}
 
 export default function Auth({ onLogin }) {
   const [params] = useSearchParams();
@@ -10,23 +21,22 @@ export default function Auth({ onLogin }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
   const submit = async () => {
     setError('');
-    if (!form.email || !form.password) return setError('Please fill in all fields.');
-    if (tab === 'signup' && !form.name) return setError('Please enter your name.');
-    if (tab === 'signup' && form.password.length < 6) return setError('Password must be at least 6 characters.');
+    if (!form.email || !form.password) return setError(t('auth_err_allFields'));
+    if (tab === 'signup' && !form.name) return setError(t('auth_err_enterName'));
+    if (tab === 'signup' && form.password.length < 6) return setError(t('auth_err_passwordLength'));
     setLoading(true);
     setError('');
 
-    // Wake up the server first (Render free tier sleeps after inactivity)
     try {
       await fetch('https://solace-ai-xyrq.onrender.com/api/health');
     } catch { /* ignore — just waking up */ }
 
-    // Retry up to 3 times with delay (server may still be waking)
     let lastError = '';
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
@@ -43,11 +53,10 @@ export default function Auth({ onLogin }) {
         } else {
           navigate('/app');
         }
-        return; // success — exit
+        return;
       } catch (e) {
         lastError = e.message || 'Something went wrong.';
         if (attempt < 3 && (lastError.includes('Network') || lastError.includes('fetch') || lastError.includes('reach'))) {
-          // Server still waking — wait and retry
           await new Promise(r => setTimeout(r, 3000));
           continue;
         }
@@ -67,18 +76,13 @@ export default function Auth({ onLogin }) {
 
         {/* LEFT — branding */}
         <div className="auth-left">
-          <Link to="/" className="auth-back">← Back to home</Link>
+          <Link to="/" className="auth-back">{t('auth_back')}</Link>
+          <LangSwitch />
           <div className="auth-brand">Solace <span>AI</span></div>
-          <p className="auth-tagline">
-            The companion who remembers your name, your stories, your goals —
-            and shows up for you every single day.
-          </p>
+          <p className="auth-tagline">{t('auth_tagline')}</p>
           <div className="auth-testimonial">
-            <p className="auth-quote">
-              "It remembered that I always feel worse on Monday mornings.
-              Without me saying anything, it just checked in. That's when I started crying."
-            </p>
-            <div className="auth-quote-author">— M.C., Graphic Designer</div>
+            <p className="auth-quote">{t('auth_testimonial')}</p>
+            <div className="auth-quote-author">{t('auth_testimonial_author')}</div>
           </div>
         </div>
 
@@ -86,51 +90,51 @@ export default function Auth({ onLogin }) {
         <div className="auth-right">
           <div className="auth-form">
             <div className="auth-form-title">
-              {tab === 'signin' ? <>Welcome <em>back</em></> : <>Begin your <em>journey</em></>}
+              {tab === 'signin'
+                ? <>{t('auth_welcomeBack_1')} <em>{t('auth_welcomeBack_em')}</em></>
+                : <>{t('auth_beginJourney_1')} <em>{t('auth_beginJourney_em')}</em></>}
             </div>
             <p className="auth-form-sub">
-              {tab === 'signin'
-                ? 'Sign in to reconnect with your companion.'
-                : 'Create your account — it only takes a moment.'}
+              {tab === 'signin' ? t('auth_subSignIn') : t('auth_subSignUp')}
             </p>
 
             <div className="auth-tabs">
               <button className={`auth-tab${tab === 'signin' ? ' active' : ''}`}
-                onClick={() => { setTab('signin'); setError(''); }}>Sign In</button>
+                onClick={() => { setTab('signin'); setError(''); }}>{t('auth_tab_signIn')}</button>
               <button className={`auth-tab${tab === 'signup' ? ' active' : ''}`}
-                onClick={() => { setTab('signup'); setError(''); }}>Create Account</button>
+                onClick={() => { setTab('signup'); setError(''); }}>{t('auth_tab_signUp')}</button>
             </div>
 
             {tab === 'signup' && (
               <div className="field-group">
-                <label className="field-label">Your Name</label>
-                <input className="field-input" placeholder="e.g. Jordan" value={form.name}
+                <label className="field-label">{t('auth_yourName')}</label>
+                <input className="field-input" placeholder={t('auth_namePlaceholder')} value={form.name}
                   onChange={set('name')} onKeyDown={onKey} autoFocus />
               </div>
             )}
 
             <div className="field-group">
-              <label className="field-label">Email</label>
+              <label className="field-label">{t('auth_email')}</label>
               <input className="field-input" type="email" placeholder="you@example.com"
                 value={form.email} onChange={set('email')} onKeyDown={onKey} />
             </div>
 
             <div className="field-group">
-              <label className="field-label">Password</label>
+              <label className="field-label">{t('auth_password')}</label>
               <input className="field-input" type="password" placeholder="••••••••"
                 value={form.password} onChange={set('password')} onKeyDown={onKey} />
             </div>
 
             <button className="auth-submit" onClick={submit} disabled={loading}>
-              {loading ? '⏳ Connecting to server… (may take 30s on first visit)' : tab === 'signin' ? 'Sign In to Solace' : 'Create My Account'}
+              {loading ? t('auth_btnLoading') : tab === 'signin' ? t('auth_btnSignIn') : t('auth_btnSignUp')}
             </button>
 
             {error && <p className="auth-error">{error}</p>}
 
             <p className="auth-switch">
               {tab === 'signin'
-                ? <>Don't have an account? <a onClick={() => { setTab('signup'); setError(''); }}>Create one →</a></>
-                : <>Already have an account? <a onClick={() => { setTab('signin'); setError(''); }}>Sign in →</a></>
+                ? <>{t('auth_noAccount')} <a onClick={() => { setTab('signup'); setError(''); }}>{t('auth_createOne')}</a></>
+                : <>{t('auth_haveAccount')} <a onClick={() => { setTab('signin'); setError(''); }}>{t('auth_signInLink')}</a></>
               }
             </p>
           </div>

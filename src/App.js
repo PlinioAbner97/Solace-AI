@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { api } from './utils/api';
 import { globalCss } from './utils/styles';
+import { useLanguage } from './utils/LanguageContext';
 import Home from './pages/Home';
 import Auth from './pages/Auth';
 import PickCompanion from './pages/PickCompanion';
@@ -99,13 +100,15 @@ export default function App() {
     setCompanion(null);
   };
 
+  const { lang } = useLanguage();
+
   if (status === 'loading') {
     return (
       <>
         <style>{globalCss}</style>
         <div className="loading-screen">
           <div className="loading-logo">Solace <span>AI</span></div>
-          <div className="loading-sub">Loading your companion…</div>
+          <div className="loading-sub">{lang === 'es' ? 'Cargando tu compañero…' : 'Loading your companion…'}</div>
         </div>
       </>
     );

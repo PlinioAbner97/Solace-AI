@@ -372,6 +372,78 @@ export const globalCss = `
   .mode-btn.active { border-color:rgba(232,167,90,.4); background:rgba(232,167,90,.08); color:var(--amber); }
   .mode-btn:hover:not(.active) { border-color:var(--border2); color:var(--cream); }
 
+  /* ── MOBILE MENU TRIGGER (hidden on desktop) ── */
+  .menu-trigger {
+    display: none;
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--panel);
+    color: var(--cream); font-size: 20px; font-weight: 700;
+    align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+  }
+
+  /* ── MOBILE BOTTOM SHEET MENU ── */
+  .menu-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 90;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(2px);
+    animation: fadeUp 0.25s ease;
+  }
+  .menu-sheet {
+    display: none;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 91;
+    background: var(--surface);
+    border-top: 1px solid var(--border2);
+    border-radius: 24px 24px 0 0;
+    padding: 10px 20px max(20px, env(safe-area-inset-bottom));
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.4);
+    animation: sheetUp 0.3s cubic-bezier(0.16,1,0.3,1);
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .menu-sheet-handle {
+    width: 40px; height: 4px; border-radius: 4px;
+    background: var(--border2); margin: 0 auto 18px;
+  }
+  .menu-sheet-user {
+    display: flex; align-items: center; gap: 12px;
+    padding-bottom: 16px; margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .menu-sheet-stats {
+    padding: 14px; border-radius: 14px;
+    background: rgba(232,167,90,0.06); border: 1px solid rgba(232,167,90,0.12);
+    margin-bottom: 16px;
+  }
+  .menu-sheet-lang {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 4px; margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .menu-sheet-lang-label { font-size: 14px; color: var(--cream); }
+  .menu-sheet-item {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    padding: 14px 12px; border: none; background: transparent;
+    border-radius: 12px; cursor: pointer; text-align: left;
+    font-family: 'DM Sans', sans-serif; font-size: 15px; color: var(--cream);
+    margin-bottom: 4px; transition: background 0.2s;
+  }
+  .menu-sheet-item:active { background: var(--panel); }
+  .menu-sheet-item span { font-size: 18px; }
+  .menu-sheet-danger { color: var(--rose); }
+  .menu-sheet-close {
+    width: 100%; margin-top: 12px; padding: 13px;
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 14px; color: var(--muted2);
+    font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer;
+  }
+
+  @keyframes sheetUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
   .msgs-area { flex:1; overflow-y:auto; padding:24px 32px; }
   .msgs-area::-webkit-scrollbar { width:4px; }
   .msgs-area::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
@@ -561,6 +633,7 @@ export const globalCss = `
       box-shadow: 0 -4px 20px rgba(0,0,0,0.25);
     }
     .sb-top, .sb-companion, .sb-stats { display: none; }
+    .sb-bottom-desktop { display: none; } /* moved into the mobile menu sheet instead */
     .sb-nav {
       flex: 1;
       display: flex;
@@ -574,43 +647,29 @@ export const globalCss = `
     .sb-section { display: none; }
     .sb-item {
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
       flex: 1;
-      min-width: 60px;
-      padding: 7px 3px;
-      font-size: 9.5px;
+      min-width: 70px;
+      padding: 9px 4px;
+      font-size: 10.5px;
       text-align: center;
       white-space: nowrap;
     }
-    .sb-icon { font-size: 18px; width: auto; }
+    .sb-icon { font-size: 19px; width: auto; }
 
-    /* Bottom bar also holds Change Companion + Sign Out as regular tabs on mobile */
-    .sb-bottom {
-      display: flex;
-      flex-direction: row;
-      padding: 4px 4px 6px;
-      padding-bottom: max(6px, env(safe-area-inset-bottom));
-      border-top: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .sb-change-comp, .sb-signout {
-      flex-direction: column;
-      gap: 3px;
-      flex: 1;
-      min-width: 60px;
-      padding: 7px 3px;
-      font-size: 9.5px;
-      text-align: center;
-      white-space: nowrap;
-      align-items: center;
-      justify-content: center;
-    }
-    .sb-change-comp-emoji, .sb-signout-emoji { font-size: 18px; }
+    .main-area { order: 1; padding-bottom: 64px; height: calc(100dvh - 64px); }
 
-    .main-area { order: 1; padding-bottom: 116px; height: calc(100dvh - 116px); }
+    /* Show the ⋯ menu trigger only on mobile, opens the bottom sheet */
+    .menu-trigger { display: flex; }
+    .menu-overlay { display: block; }
+    .menu-sheet { display: block; }
+    .menu-sheet-user .sb-avatar { width: 40px; height: 40px; }
 
     /* ── CHAT VIEW — mode tabs scroll horizontally, labels visible ── */
     .chat-top { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+    .chat-comp-info { order: 1; flex: 1; }
+    .menu-trigger { order: 2; }
+    .mode-btns { order: 3; }
     .chat-comp-name { font-size: 17px; }
     .chat-comp-av { width: 36px; height: 36px; font-size: 18px; }
     .mode-btns {

@@ -14,6 +14,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const [sending, setSending] = useState(false);
   const [profileForm, setProfileForm] = useState(initMemory?.profile || {});
   const [saveOk, setSaveOk] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const navigate = useNavigate();
@@ -205,7 +206,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
             </div>
           </div>
 
-          <div className="sb-bottom">
+          <div className="sb-bottom sb-bottom-desktop">
             <button className="sb-change-comp" onClick={handleChangeCompanion}>
               <span className="sb-change-comp-emoji">🔄</span>
               <span>{t('sb_changeCompanion').replace('🔄 ', '')}</span>
@@ -236,6 +237,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                     </div>
                   </div>
                 </div>
+                <button className="menu-trigger" onClick={() => setMenuOpen(true)} aria-label="Menu">⋯</button>
                 <div className="mode-btns">
                   {modes.map(m => (
                     <button key={m.id} className={`mode-btn${mode === m.id ? ' active' : ''}`}
@@ -409,6 +411,57 @@ export default function AppShell({ user, companion, memory: initMemory, messages
 
         </div>
       </div>
+
+      {/* ── MOBILE MENU (bottom sheet) ── */}
+      {menuOpen && (
+        <>
+          <div className="menu-overlay" onClick={() => setMenuOpen(false)} />
+          <div className="menu-sheet">
+            <div className="menu-sheet-handle" />
+
+            <div className="menu-sheet-user">
+              <div className="sb-avatar" style={{ background: `linear-gradient(135deg, ${accent}88, ${accent})` }}>
+                {initials(user?.name)}
+              </div>
+              <div>
+                <div className="sb-uname">{user?.name}</div>
+                <div className="sb-since">{t('sb_since')} {user?.createdAt}</div>
+              </div>
+            </div>
+
+            <div className="menu-sheet-stats">
+              <div className="sb-stats-label">{t('sb_memoryStats')}</div>
+              <div className="sb-stats-row">
+                <div>💡 {memory?.facts?.length || 0} {t('sb_factsLearned')}</div>
+                <div>📝 {memory?.timeline?.length || 0} {t('sb_milestones')}</div>
+                <div>💬 {messages.length} {t('sb_messages')}</div>
+              </div>
+              <div className="prog-bar" style={{ marginTop: 10 }}>
+                <div className="prog-fill" style={{ width: `${Math.min(100, ((memory?.facts?.length || 0) / 20) * 100)}%` }} />
+              </div>
+            </div>
+
+            <div className="menu-sheet-lang">
+              <span className="menu-sheet-lang-label">{lang === 'es' ? 'Idioma' : 'Language'}</span>
+              <div className="lang-switch">
+                <button className={`lang-btn${lang === 'en' ? ' active' : ''}`} onClick={() => setLang('en')}>EN</button>
+                <button className={`lang-btn${lang === 'es' ? ' active' : ''}`} onClick={() => setLang('es')}>ES</button>
+              </div>
+            </div>
+
+            <button className="menu-sheet-item" onClick={() => { setMenuOpen(false); handleChangeCompanion(); }}>
+              <span>🔄</span> {t('sb_changeCompanion').replace('🔄 ', '')}
+            </button>
+            <button className="menu-sheet-item menu-sheet-danger" onClick={() => { setMenuOpen(false); handleSignOut(); }}>
+              <span>↩</span> {t('sb_signOut').replace('↩ ', '')}
+            </button>
+
+            <button className="menu-sheet-close" onClick={() => setMenuOpen(false)}>
+              {lang === 'es' ? 'Cerrar' : 'Close'}
+            </button>
+          </div>
+        </>
+      )}
     </>
   );
 }

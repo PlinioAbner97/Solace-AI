@@ -286,8 +286,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                     placeholder={`${t('chat_talkTo')} ${compName}…`}
                     value={input} onChange={e => setInput(e.target.value)}
                     onKeyDown={onKeyDown} rows={1} />
-                  <button className="send-btn" onClick={sendMessage} disabled={sending || !input.trim()}
-                    style={{ background: `linear-gradient(135deg, ${accent}, #c46e3a)` }}>
+                  <button className="send-btn" onClick={sendMessage} disabled={sending || !input.trim()}>
                     ↑
                   </button>
                 </div>

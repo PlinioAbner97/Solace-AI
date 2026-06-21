@@ -1,23 +1,23 @@
 export const FEMALE_COMPANIONS = [
-  { name: 'Luna',    emoji: '🌙', trait: 'gentle and deeply intuitive',       accent: '#c4a0d4' },
-  { name: 'Aria',    emoji: '🎵', trait: 'warm, creative and expressive',      accent: '#d97a8a' },
-  { name: 'Sage',    emoji: '🌿', trait: 'wise, calm and grounding',           accent: '#7ab89a' },
-  { name: 'Nova',    emoji: '✨', trait: 'bright, curious and enthusiastic',   accent: '#e8c56a' },
-  { name: 'Cleo',    emoji: '🌺', trait: 'bold, confident and caring',         accent: '#d4847a' },
-  { name: 'Iris',    emoji: '🌈', trait: 'playful, empathetic and vibrant',    accent: '#9b8ec4' },
-  { name: 'Ember',   emoji: '🔥', trait: 'passionate, fierce and loyal',       accent: '#e8a75a' },
-  { name: 'Zara',    emoji: '⚡', trait: 'sharp, witty and adventurous',       accent: '#74b8d4' },
+  { name: 'Luna',    emoji: '🌙', trait: 'gentle and deeply intuitive',       accent: '#e4e2dc' },
+  { name: 'Aria',    emoji: '🎵', trait: 'warm, creative and expressive',      accent: '#e8e6e0' },
+  { name: 'Sage',    emoji: '🌿', trait: 'wise, calm and grounding',           accent: '#e2e0da' },
+  { name: 'Nova',    emoji: '✨', trait: 'bright, curious and enthusiastic',   accent: '#ece9e2' },
+  { name: 'Cleo',    emoji: '🌺', trait: 'bold, confident and caring',         accent: '#e6e3dd' },
+  { name: 'Iris',    emoji: '🌈', trait: 'playful, empathetic and vibrant',    accent: '#e3e1db' },
+  { name: 'Ember',   emoji: '🔥', trait: 'passionate, fierce and loyal',       accent: '#e9e7e1' },
+  { name: 'Zara',    emoji: '⚡', trait: 'sharp, witty and adventurous',       accent: '#e0dedb' },
 ];
 
 export const MALE_COMPANIONS = [
-  { name: 'Orion',   emoji: '🌌', trait: 'thoughtful, steady and wise',        accent: '#7a9ec4' },
-  { name: 'Kai',     emoji: '🌊', trait: 'calm, deep and understanding',       accent: '#6ab4c4' },
-  { name: 'Ash',     emoji: '🍂', trait: 'grounded, warm and dependable',      accent: '#c4a07a' },
-  { name: 'Leo',     emoji: '🦁', trait: 'confident, protective and energetic',accent: '#e8c56a' },
-  { name: 'Theo',    emoji: '🌟', trait: 'gentle, thoughtful and encouraging', accent: '#9bb8d4' },
-  { name: 'Remy',    emoji: '🎭', trait: 'charismatic, fun and deeply caring', accent: '#d4a47a' },
-  { name: 'Finn',    emoji: '🏔️', trait: 'adventurous, honest and playful',   accent: '#7ab89a' },
-  { name: 'Atlas',   emoji: '🗺️', trait: 'curious, supportive and visionary', accent: '#9b8ec4' },
+  { name: 'Orion',   emoji: '🌌', trait: 'thoughtful, steady and wise',        accent: '#e1dfdc' },
+  { name: 'Kai',     emoji: '🌊', trait: 'calm, deep and understanding',       accent: '#e5e3de' },
+  { name: 'Ash',     emoji: '🍂', trait: 'grounded, warm and dependable',      accent: '#e7e4de' },
+  { name: 'Leo',     emoji: '🦁', trait: 'confident, protective and energetic',accent: '#eae8e1' },
+  { name: 'Theo',    emoji: '🌟', trait: 'gentle, thoughtful and encouraging', accent: '#e2e0db' },
+  { name: 'Remy',    emoji: '🎭', trait: 'charismatic, fun and deeply caring', accent: '#e6e4dd' },
+  { name: 'Finn',    emoji: '🏔️', trait: 'adventurous, honest and playful',   accent: '#e3e1da' },
+  { name: 'Atlas',   emoji: '🗺️', trait: 'curious, supportive and visionary', accent: '#e0ded9' },
 ];
 
 export function pickRandomCompanion(gender) {

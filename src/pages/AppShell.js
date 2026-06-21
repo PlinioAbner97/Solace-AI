@@ -15,6 +15,8 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const [profileForm, setProfileForm] = useState(initMemory?.profile || {});
   const [saveOk, setSaveOk] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [checkinMsg, setCheckinMsg] = useState(null);
+  const [checkinVisible, setCheckinVisible] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const navigate = useNavigate();
@@ -35,6 +37,25 @@ export default function AppShell({ user, companion, memory: initMemory, messages
       }
     })();
   }, [companion?.name]);
+
+  // Fetch today's proactive check-in — once per companion per day, cached server-side
+  useEffect(() => {
+    if (!companion?.name) return;
+    setCheckinMsg(null);
+    setCheckinVisible(false);
+    (async () => {
+      try {
+        const { message } = await api.getCheckin(companion.name, companion.name, companion.trait, lang);
+        if (message) {
+          setCheckinMsg(message);
+          // small delay so it feels like it's arriving, not just slapped on screen
+          setTimeout(() => setCheckinVisible(true), 400);
+        }
+      } catch (e) {
+        console.warn('Checkin fetch failed:', e.message);
+      }
+    })();
+  }, [companion?.name, lang]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, sending]);
 
@@ -126,6 +147,20 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   };
 
   const handleChangeCompanion = () => navigate('/pick-companion');
+
+  const acceptCheckin = () => {
+    if (!checkinMsg) return;
+    const aiMsg = { role: 'assistant', content: checkinMsg, time: nowTime() };
+    setMessages(prev => [...prev, aiMsg]);
+    api.saveMessage('assistant', checkinMsg, companion?.name).catch(() => {});
+    setCheckinVisible(false);
+    setTimeout(() => setCheckinMsg(null), 400);
+  };
+
+  const dismissCheckin = () => {
+    setCheckinVisible(false);
+    setTimeout(() => setCheckinMsg(null), 400);
+  };
 
   const modes = [
     { id: 'friend',  emoji: '💬', label: t('mode_friend') },
@@ -249,12 +284,33 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                 </div>
               </div>
 
+              {checkinMsg && (
+                <div className={`checkin-card${checkinVisible ? ' checkin-visible' : ''}`}>
+                  <div className="checkin-icon">{companion?.emoji || '✦'}</div>
+                  <div className="checkin-body">
+                    <div className="checkin-label">
+                      {lang === 'es' ? `${compName} pensó en ti` : `${compName} was thinking of you`}
+                    </div>
+                    <div className="checkin-text">{checkinMsg}</div>
+                    <div className="checkin-actions">
+                      <button className="checkin-reply" onClick={acceptCheckin}>
+                        {lang === 'es' ? 'Responder' : 'Reply'}
+                      </button>
+                      <button className="checkin-dismiss" onClick={dismissCheckin}>
+                        {lang === 'es' ? 'Ahora no' : 'Not now'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="msgs-area">
                 {messages.length === 0 && (
                   <div className="welcome-box">
                     <div className="welcome-icon">{companion?.emoji || '✦'}</div>
                     <div className="welcome-title">{t('chat_welcomeHello')} <em>{user?.name}</em></div>
                     <p className="welcome-body">{t('chat_welcomeBody')}</p>
+
                   </div>
                 )}
 

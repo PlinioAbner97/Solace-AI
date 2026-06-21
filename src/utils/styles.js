@@ -542,6 +542,50 @@ export const globalCss = `
     to { transform: translateY(0); }
   }
 
+  /* ── DAILY CHECK-IN CARD — proactive warmth waiting for the user ── */
+  .checkin-card {
+    margin: 16px 28px 0;
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 18px 20px;
+    background: linear-gradient(135deg, rgba(232,180,150,0.14), rgba(217,140,150,0.07));
+    border: 1px solid rgba(232,180,150,0.2);
+    border-radius: 20px;
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 16px 40px rgba(232,150,150,0.08);
+    opacity: 0; transform: translateY(-14px);
+    transition: opacity 0.7s var(--ease-slow), transform 0.7s var(--ease-slow);
+    flex-shrink: 0;
+  }
+  .checkin-card.checkin-visible { opacity: 1; transform: translateY(0); }
+  .checkin-icon {
+    font-size: 22px; flex-shrink: 0; margin-top: 1px;
+    animation: breathe-soft 5s ease-in-out infinite;
+  }
+  .checkin-body { flex: 1; min-width: 0; }
+  .checkin-label {
+    font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--warm-dim); margin-bottom: 6px;
+  }
+  .checkin-text {
+    font-family: 'Cormorant Garamond', serif; font-size: 16.5px; font-weight: 300;
+    line-height: 1.6; color: var(--cream); margin-bottom: 14px;
+  }
+  .checkin-actions { display: flex; gap: 10px; }
+  .checkin-reply {
+    padding: 8px 18px; border-radius: 100px; border: none; cursor: pointer;
+    background: var(--cream); color: #0a0a0c;
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+    transition: all .4s var(--ease);
+  }
+  .checkin-reply:hover { transform: translateY(-1px); }
+  .checkin-dismiss {
+    padding: 8px 16px; border-radius: 100px; border: 1px solid var(--border);
+    cursor: pointer; background: transparent; color: var(--muted2);
+    font-family: 'Inter', sans-serif; font-size: 12px; transition: all .4s var(--ease);
+  }
+  .checkin-dismiss:hover { color: var(--cream); border-color: var(--border2); }
+
   .msgs-area { flex:1; overflow-y:auto; padding:24px 32px; }
   .msgs-area::-webkit-scrollbar { width:4px; }
   .msgs-area::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
@@ -756,6 +800,10 @@ export const globalCss = `
     .chat-comp-av { width: 36px; height: 36px; font-size: 18px; }
     .mode-btn { padding: 7px 12px; font-size: 12px; flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; }
     .mode-label-text { display: inline; }
+
+    .checkin-card { margin: 12px 16px 0; padding: 15px 16px; gap: 11px; }
+    .checkin-text { font-size: 15px; }
+    .checkin-actions { flex-wrap: wrap; }
 
     .msgs-area { padding: 16px; }
     .msg-bubble { max-width: 82%; font-size: 14px; padding: 11px 15px; }

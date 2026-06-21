@@ -41,6 +41,9 @@ export const api = {
   chat:          (messages, systemPrompt) => call('/chat', 'POST', { messages, systemPrompt }),
   extractMemory: (userText, existingFacts) => call('/extract-memory', 'POST', { userText, existingFacts }),
 
+  getCheckin: (companion, companionName, companionTrait, lang) =>
+    call(`/checkin?companion=${encodeURIComponent(companion || 'default')}&companionName=${encodeURIComponent(companionName||'')}&companionTrait=${encodeURIComponent(companionTrait||'')}&lang=${lang||'en'}`),
+
   testAI: () => call('/test-ai'),
 };
 

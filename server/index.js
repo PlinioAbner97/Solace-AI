@@ -44,6 +44,7 @@ async function initDB() {
       user_id INTEGER, companion TEXT NOT NULL DEFAULT 'default',
       profile TEXT DEFAULT '{}', facts TEXT DEFAULT '[]',
       mood_history TEXT DEFAULT '[]', timeline TEXT DEFAULT '[]', updated_at TEXT,
+      last_checkin_date TEXT, checkin_message TEXT,
       PRIMARY KEY (user_id, companion))`);
     await client.execute(`CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
@@ -74,6 +75,14 @@ async function initDB() {
         await client.execute(`ALTER TABLE messages ADD COLUMN companion TEXT NOT NULL DEFAULT 'default'`);
         console.log('✦ messages migrated successfully');
       }
+      const memCols = await client.execute(`PRAGMA table_info(user_memory)`);
+      const hasCheckin = memCols.rows.some(r => r.name === 'last_checkin_date');
+      if (!hasCheckin) {
+        console.log('⚠ Adding daily check-in columns...');
+        await client.execute(`ALTER TABLE user_memory ADD COLUMN last_checkin_date TEXT`);
+        await client.execute(`ALTER TABLE user_memory ADD COLUMN checkin_message TEXT`);
+        console.log('✦ check-in columns added');
+      }
     } catch (migErr) {
       console.error('Migration check failed (non-fatal):', migErr.message);
     }
@@ -94,6 +103,7 @@ async function initDB() {
         user_id INTEGER, companion TEXT NOT NULL DEFAULT 'default',
         profile TEXT DEFAULT '{}', facts TEXT DEFAULT '[]',
         mood_history TEXT DEFAULT '[]', timeline TEXT DEFAULT '[]', updated_at TEXT,
+        last_checkin_date TEXT, checkin_message TEXT,
         PRIMARY KEY (user_id, companion));
       CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
@@ -358,6 +368,81 @@ Return ONLY valid JSON: {"newFacts":["up to 3 NEW facts"],"mood":"one word or nu
     res.json(parsed);
   } catch {
     res.json({ newFacts:[], mood:null, milestone:null });
+  }
+});
+
+// ── DAILY CHECK-IN — a proactive, warm message waiting for the user ───────────
+// Generated once per day per companion, cached in user_memory so it doesn't
+// regenerate on every page load. This is what makes the companion feel like
+// it genuinely remembers and thinks about the user between visits.
+app.get('/api/checkin', auth, async (req, res) => {
+  try {
+    const companion = req.query.companion || 'default';
+    const compName   = req.query.companionName  || 'your companion';
+    const compTrait  = req.query.companionTrait || 'warm and caring';
+    const lang       = req.query.lang === 'es' ? 'es' : 'en';
+    const todayKey   = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    const row = await DB.get(
+      'SELECT * FROM user_memory WHERE user_id = ? AND companion = ?',
+      req.user.id, companion
+    );
+
+    // Already generated today — return the cached one, no AI call needed
+    if (row?.last_checkin_date === todayKey && row?.checkin_message) {
+      return res.json({ message: row.checkin_message, isNew: false });
+    }
+
+    // Find the most recent message to know how long the user's been away
+    const lastMsgRow = await DB.get(
+      'SELECT created_at FROM messages WHERE user_id=? AND companion=? ORDER BY id DESC LIMIT 1',
+      req.user.id, companion
+    );
+
+    const facts    = row ? JSON.parse(row.facts || '[]') : [];
+    const timeline = row ? JSON.parse(row.timeline || '[]') : [];
+    const moods    = row ? JSON.parse(row.mood_history || '[]') : [];
+    const lastMood = moods.length ? moods[moods.length - 1] : null;
+
+    // No history yet — don't generate a check-in for a brand new companion
+    if (!lastMsgRow && facts.length === 0) {
+      return res.json({ message: null, isNew: false });
+    }
+
+    let daysSince = 0;
+    if (lastMsgRow?.created_at) {
+      daysSince = Math.floor((Date.now() - new Date(lastMsgRow.created_at).getTime()) / 86400000);
+    }
+
+    if (!GROQ_KEY) return res.json({ message: null, isNew: false });
+
+    const sys = lang === 'es'
+      ? `Eres ${compName}, un compañero de IA (${compTrait}). Escribe UN mensaje corto y cálido (2-3 oraciones) que ${compName} le enviaría al usuario ahora, como si hubiera estado pensando en él/ella.
+Datos que sabes: ${facts.length ? facts.join('; ') : 'aún no sabes mucho de él/ella'}
+Último estado de ánimo conocido: ${lastMood ? lastMood.mood : 'desconocido'}
+Último logro o evento: ${timeline.length ? timeline[timeline.length-1].content : 'ninguno'}
+Días desde la última conversación: ${daysSince}
+Reglas: cálido, breve, natural, en español, sin sonar robótico, haz referencia a algo específico que sepas de él/ella si es posible. Si han pasado varios días, nota la ausencia con cariño, sin culpar. Responde solo con el mensaje, nada más.`
+      : `You are ${compName}, an AI companion (${compTrait}). Write ONE short, warm message (2-3 sentences) that ${compName} would send the user right now, as if they'd been thinking about them.
+Things you know: ${facts.length ? facts.join('; ') : "you don't know much about them yet"}
+Last known mood: ${lastMood ? lastMood.mood : 'unknown'}
+Last milestone/event: ${timeline.length ? timeline[timeline.length-1].content : 'none'}
+Days since last conversation: ${daysSince}
+Rules: warm, brief, natural, never robotic, reference something specific you know about them if possible. If several days have passed, gently note the gap without guilt-tripping. Reply with ONLY the message, nothing else.`;
+
+    const message = await groqChat(CHAT_MODELS, [{ role: 'user', content: 'Generate the check-in message now.' }], sys, 150);
+
+    // Cache it so we don't regenerate today
+    await DB.run(
+      `INSERT INTO user_memory (user_id,companion,last_checkin_date,checkin_message,updated_at) VALUES (?,?,?,?,?)
+       ON CONFLICT(user_id,companion) DO UPDATE SET last_checkin_date=excluded.last_checkin_date, checkin_message=excluded.checkin_message`,
+      req.user.id, companion, todayKey, message, new Date().toISOString()
+    );
+
+    res.json({ message, isNew: true });
+  } catch (e) {
+    console.error('Checkin error:', e.message);
+    res.json({ message: null, isNew: false });
   }
 });
 

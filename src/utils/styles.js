@@ -126,28 +126,32 @@ export const globalCss = `
 
   /* ── HERO ── */
   .hero {
-    position: relative; min-height: 100vh; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; text-align: center;
-    padding: 120px 24px 80px;
+    position: relative; min-height: 100vh; display: flex; align-items: center;
+    padding: 140px 56px 80px;
   }
+  .hero-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center;
+    max-width: 1280px; margin: 0 auto; width: 100%;
+  }
+  .hero-text { text-align: left; }
   .hero-eyebrow {
     display: inline-flex; align-items: center; gap: 10px; font-size: 11px;
-    letter-spacing: .18em; text-transform: uppercase; color: var(--warm-dim); margin-bottom: 36px;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--warm-dim); margin-bottom: 28px;
     opacity: 0; animation: fadeUp 1.2s .2s var(--ease-slow) forwards;
   }
-  .hero-eyebrow::before, .hero-eyebrow::after { content:''; width:24px; height:1px; background: var(--border2); }
+  .hero-eyebrow::before { content:''; width:24px; height:1px; background: var(--border2); }
   .hero h1 {
-    font-family: 'Cormorant Garamond', serif; font-size: clamp(48px,7.5vw,100px);
-    font-weight: 300; line-height: 1.04; max-width: 880px; letter-spacing: -0.01em;
+    font-family: 'Cormorant Garamond', serif; font-size: clamp(44px,5.2vw,76px);
+    font-weight: 300; line-height: 1.05; letter-spacing: -0.01em;
     opacity: 0; animation: fadeUp 1.3s .4s var(--ease-slow) forwards;
   }
   .hero h1 em { font-style: italic; color: var(--muted2); }
   .hero-sub {
-    margin-top: 28px; font-size: 16.5px; color: var(--muted2); max-width: 500px; line-height: 1.75;
+    margin-top: 26px; font-size: 16px; color: var(--muted2); max-width: 440px; line-height: 1.75;
     opacity: 0; animation: fadeUp 1.3s .65s var(--ease-slow) forwards; font-weight: 300;
   }
   .hero-actions {
-    margin-top: 44px; display: flex; gap: 14px;
+    margin-top: 40px; display: flex; gap: 14px;
     opacity: 0; animation: fadeUp 1.3s .85s var(--ease-slow) forwards;
   }
   .btn-primary {
@@ -171,37 +175,58 @@ export const globalCss = `
   }
   .btn-ghost:hover { background: var(--glass-hover); transform: translateY(-2px); }
 
-  /* chat preview */
-  .chat-preview { margin-top: 68px; width: min(580px, 94vw); opacity: 0; animation: fadeUp 1.4s 1.1s var(--ease-slow) forwards; }
-  .chat-window {
-    background: var(--glass); border: 1px solid var(--border); border-radius: 28px;
-    padding: 30px; backdrop-filter: blur(40px) saturate(150%);
-    -webkit-backdrop-filter: blur(40px) saturate(150%);
-    box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset, 0 50px 120px rgba(0,0,0,0.5);
+  /* ── MEMORY CONSTELLATION — signature element ──
+     A small thread of real memory fragments, drifting slowly, connected by
+     curved lines. This is the one bold visual idea on the page: Solace holds
+     a continuous thread of you, not a stateless chat window. */
+  .hero-visual {
+    position: relative; opacity: 0;
+    animation: fadeUp 1.5s 1s var(--ease-slow) forwards;
   }
-  .chat-hdr { display:flex; align-items:center; gap:12px; margin-bottom:22px; padding-bottom:18px; border-bottom:1px solid var(--border); }
-  .chat-av {
-    width:38px; height:38px; border-radius:50%;
-    background: rgba(255,255,255,0.1); border: 1px solid var(--border2);
-    display:flex; align-items:center; justify-content:center; font-size:17px;
+  .hero-memory-label {
+    font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 18px; text-align: left;
   }
-  .chat-av-name { font-family:'Cormorant Garamond',serif; font-size:16px; font-weight: 400; }
-  .chat-av-status { font-size:11px; color:var(--green); opacity: 0.85; }
-  .chat-online { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); margin-left:auto; animation:pulse 2.5s infinite; }
-  .chat-msgs { display:flex; flex-direction:column; gap:13px; }
-  .cmsg { max-width:82%; padding:13px 17px; border-radius:18px; font-size:13.5px; line-height:1.65; opacity:0; font-weight: 300; }
-  .cmsg.ai {
-    background: linear-gradient(135deg, rgba(232,180,150,0.16), rgba(217,140,150,0.09));
-    border:1px solid rgba(232,180,150,0.2); border-radius:18px 18px 18px 5px; color: var(--cream);
+  .constellation {
+    position: relative; width: 100%; aspect-ratio: 1.15 / 1;
+    max-width: 560px;
   }
-  .cmsg.me {
-    align-self:flex-end;
-    background: linear-gradient(135deg, rgba(150,170,232,0.15), rgba(170,150,232,0.1));
-    border:1px solid rgba(170,165,232,0.22); border-radius:18px 18px 5px 18px; color: var(--cream);
+  .constellation-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .thread-line {
+    fill: none; stroke: var(--warm-dim); stroke-width: 0.15; opacity: 0;
+    stroke-dasharray: 4; stroke-dashoffset: 4;
+    animation: threadDraw 2.4s var(--ease-slow) forwards;
   }
-  .cmsg:nth-child(1){animation:fadeUp 0.8s 1.6s var(--ease-slow) forwards;}
-  .cmsg:nth-child(2){animation:fadeUp 0.8s 2.3s var(--ease-slow) forwards;}
-  .cmsg:nth-child(3){animation:fadeUp 0.8s 3.1s var(--ease-slow) forwards;}
+  @keyframes threadDraw {
+    0%   { opacity: 0; stroke-dashoffset: 4; }
+    15%  { opacity: 0.55; }
+    100% { opacity: 0.4; stroke-dashoffset: 0; }
+  }
+  .mem-node {
+    position: absolute; transform: translate(-50%, -50%);
+    display: flex; align-items: center; gap: 9px;
+    opacity: 0; animation: nodeAppear 1.4s var(--ease-slow) forwards, drift 9s ease-in-out infinite;
+  }
+  @keyframes nodeAppear { from { opacity: 0; transform: translate(-50%,-50%) scale(0.7); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+  @keyframes drift {
+    0%, 100% { margin-top: 0px; margin-left: 0px; }
+    50%      { margin-top: -7px; margin-left: 4px; }
+  }
+  .mem-node-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    background: var(--warm); box-shadow: 0 0 12px 2px var(--warm-glow);
+  }
+  .mem-node-label {
+    font-size: 12px; color: var(--muted2); white-space: nowrap;
+    background: rgba(255,248,238,0.05); border: 1px solid var(--border);
+    backdrop-filter: blur(16px); padding: 5px 11px; border-radius: 100px;
+    font-weight: 300;
+  }
+
+  /* signature thread divider — used instead of a plain hairline between sections */
+  .thread-divider { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+  .thread-divider svg { width: 100%; height: 12px; display: block; }
+  .thread-divider-path { fill: none; stroke: var(--border2); stroke-width: 1; }
 
   /* ── SECTIONS ── */
   .section { position:relative; padding:120px 24px; }
@@ -717,13 +742,18 @@ export const globalCss = `
     .lang-switch { padding: 2px; }
     .lang-btn { padding: 5px 9px; font-size: 11px; }
 
-    .hero { padding: 100px 18px 56px; min-height: auto; }
+    .hero { padding: 110px 20px 56px; min-height: auto; }
+    .hero-grid { grid-template-columns: 1fr; gap: 48px; text-align: center; }
+    .hero-text { text-align: center; }
+    .hero-eyebrow { justify-content: center; }
     .hero h1 { font-size: clamp(36px, 11vw, 56px); }
-    .hero-sub { font-size: 15px; padding: 0 4px; }
-    .hero-actions { flex-direction: column; width: 100%; gap: 12px; }
+    .hero-sub { font-size: 15px; padding: 0 4px; margin-left: auto; margin-right: auto; }
+    .hero-actions { flex-direction: column; width: 100%; gap: 12px; justify-content: center; }
     .hero-actions a, .hero-actions button { width: 100%; justify-content: center; text-align:center; }
-    .chat-preview { margin-top: 48px; }
-    .chat-window { padding: 20px; border-radius: 22px; }
+    .hero-visual { margin: 0 auto; }
+    .hero-memory-label { text-align: center; }
+    .constellation { max-width: 100%; aspect-ratio: 1 / 1; }
+    .mem-node-label { font-size: 10.5px; padding: 4px 9px; }
 
     .section { padding: 64px 18px; }
     .sec-title { font-size: clamp(28px, 8vw, 40px); }

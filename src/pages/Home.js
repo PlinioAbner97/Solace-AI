@@ -14,6 +14,44 @@ function LangSwitch({ className = '' }) {
   );
 }
 
+// ── MEMORY CONSTELLATION — the page's signature element.
+// Real memory fragments drifting slowly on connecting threads, visualizing
+// the one thing that makes Solace different: a continuous thread of you,
+// not a stateless chat window.
+const NODES = [
+  { id: 'mem1', x: 14, y: 18, r: 0 },
+  { id: 'mem2', x: 62, y: 8,  r: 1 },
+  { id: 'mem3', x: 86, y: 34, r: 2 },
+  { id: 'mem4', x: 8,  y: 56, r: 3 },
+  { id: 'mem5', x: 50, y: 64, r: 4 },
+  { id: 'mem6', x: 80, y: 82, r: 5 },
+];
+const THREADS = [[0,1],[1,2],[0,3],[3,4],[4,5],[1,4]];
+
+function MemoryConstellation({ t }) {
+  return (
+    <div className="constellation">
+      <svg className="constellation-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        {THREADS.map(([a, b], i) => {
+          const A = NODES[a], B = NODES[b];
+          const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2 - 6;
+          return (
+            <path key={i}
+              d={`M ${A.x} ${A.y} Q ${mx} ${my} ${B.x} ${B.y}`}
+              className="thread-line" style={{ animationDelay: `${i * 0.4}s` }} />
+          );
+        })}
+      </svg>
+      {NODES.map((n) => (
+        <div key={n.id} className="mem-node" style={{ left: `${n.x}%`, top: `${n.y}%`, animationDelay: `${n.r * 0.6}s` }}>
+          <span className="mem-node-dot" />
+          <span className="mem-node-label">{t(n.id)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   const revealRefs = useRef([]);
   const { t } = useLanguage();
@@ -60,35 +98,30 @@ export default function Home() {
 
         {/* HERO */}
         <section className="hero">
-          <div className="hero-eyebrow">{t('hero_eyebrow')}</div>
-          <h1>{t('hero_title_1')}<br /><em>{t('hero_title_em')}</em></h1>
-          <p className="hero-sub">{t('hero_sub')}</p>
-          <div className="hero-actions">
-            <Link to="/auth?tab=signup" className="btn-primary">{t('hero_cta_primary')}</Link>
-            <a href="#companions" className="btn-ghost">{t('hero_cta_secondary')}</a>
-          </div>
+          <div className="hero-grid">
+            <div className="hero-text">
+              <div className="hero-eyebrow">{t('hero_eyebrow')}</div>
+              <h1>{t('hero_title_1')}<br /><em>{t('hero_title_em')}</em></h1>
+              <p className="hero-sub">{t('hero_sub')}</p>
+              <div className="hero-actions">
+                <Link to="/auth?tab=signup" className="btn-primary">{t('hero_cta_primary')}</Link>
+                <a href="#companions" className="btn-ghost">{t('hero_cta_secondary')}</a>
+              </div>
+            </div>
 
-          {/* Chat preview */}
-          <div className="chat-preview">
-            <div className="chat-window">
-              <div className="chat-hdr">
-                <div className="chat-av">🌙</div>
-                <div>
-                  <div className="chat-av-name">{t('chat_preview_name')}</div>
-                  <div className="chat-av-status">{t('chat_preview_status')}</div>
-                </div>
-                <div className="chat-online" />
-              </div>
-              <div className="chat-msgs">
-                <div className="cmsg ai">{t('chat_preview_msg1')}</div>
-                <div className="cmsg me">{t('chat_preview_msg2')}</div>
-                <div className="cmsg ai">{t('chat_preview_msg3')}</div>
-              </div>
+            <div className="hero-visual">
+              <div className="hero-memory-label">{t('hero_memory_label')}</div>
+              <MemoryConstellation t={t} />
             </div>
           </div>
         </section>
 
-        <div className="divider" />
+        <div className="thread-divider">
+          <svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M 0 6 Q 50 0, 100 6 T 200 6" className="thread-divider-path" />
+          </svg>
+        </div>
+
 
         {/* COMPANIONS */}
         <section className="section" id="companions">

@@ -806,6 +806,7 @@ export const globalCss = `
     }
     .sb-top, .sb-companion, .sb-stats { display: none; }
     .sb-bottom-desktop { display: none; }
+    .lang-switch-sidebar { display: none; } /* already in the bottom sheet menu */
     .sb-nav {
       flex: 1; display: flex; flex-direction: row; padding: 6px 4px;
       padding-bottom: max(6px, env(safe-area-inset-bottom));
@@ -815,7 +816,8 @@ export const globalCss = `
     .sb-item { flex-direction: column; gap: 4px; flex: 1; min-width: 70px; padding: 9px 4px; font-size: 10.5px; text-align: center; white-space: nowrap; }
     .sb-icon { font-size: 19px; width: auto; }
 
-    .main-area { order: 1; padding-bottom: 64px; height: calc(100dvh - 64px); }
+    .main-area { order: 1; height: 100dvh; padding-bottom: 0; }
+    .chat-view { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
 
     .menu-trigger { display: flex; }
     .menu-overlay { display: block; }
@@ -846,7 +848,7 @@ export const globalCss = `
     .send-btn { width: 44px; height: 44px; font-size: 18px; }
     .input-hint { display: none; }
 
-    .inner-view { padding: 20px 16px 24px; }
+    .inner-view { padding: 20px 16px calc(80px + env(safe-area-inset-bottom)); }
     .view-title { font-size: 26px; }
     .view-sub { font-size: 13px; margin-bottom: 24px; }
 

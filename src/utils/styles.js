@@ -944,7 +944,13 @@ export const globalCss = `
     .sb-icon { font-size: 19px; width: auto; }
 
     .main-area { order: 1; height: 100dvh; padding-bottom: 0; }
-    .chat-view { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+    .chat-view { height: 100%; display: flex; flex-direction: column; padding-bottom: 0; }
+    .msgs-area { flex: 1; overflow-y: auto; min-height: 0; padding: 16px; }
+    .input-area {
+      padding: 10px 12px 12px;
+      margin-bottom: calc(60px + env(safe-area-inset-bottom));
+      flex-shrink: 0;
+    }
 
     .menu-trigger { display: flex; }
     .menu-overlay { display: block; }
@@ -964,13 +970,11 @@ export const globalCss = `
     .checkin-text { font-size: 15px; }
     .checkin-actions { flex-wrap: wrap; }
 
-    .msgs-area { padding: 16px; }
     .msg-bubble { max-width: 82%; font-size: 14px; padding: 11px 15px; }
     .welcome-box { padding: 40px 20px; }
     .welcome-icon { font-size: 38px; }
     .welcome-title { font-size: 26px; }
 
-    .input-area { padding: 10px 12px 12px; }
     .msg-input { font-size: 16px; padding: 11px 14px; min-height: 44px; }
     .send-btn { width: 44px; height: 44px; font-size: 18px; }
     .input-hint { display: none; }

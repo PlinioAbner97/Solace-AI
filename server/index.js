@@ -50,6 +50,11 @@ async function initDB() {
       id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
       companion TEXT NOT NULL DEFAULT 'default',
       role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL)`);
+    await client.execute(`CREATE TABLE IF NOT EXISTS weekly_insights (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+      companion TEXT NOT NULL DEFAULT 'default', week_key TEXT NOT NULL,
+      insight TEXT NOT NULL, created_at TEXT NOT NULL,
+      UNIQUE(user_id, companion, week_key))`);
 
     // ── AUTO-MIGRATION: detect old schema (no companion column) and rebuild ──
     try {
@@ -109,6 +114,11 @@ async function initDB() {
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
         companion TEXT NOT NULL DEFAULT 'default',
         role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS weekly_insights (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+        companion TEXT NOT NULL DEFAULT 'default', week_key TEXT NOT NULL,
+        insight TEXT NOT NULL, created_at TEXT NOT NULL,
+        UNIQUE(user_id, companion, week_key));
     `);
     console.log('✦ Using local SQLite:', DB_PATH);
     return { type: 'sqlite', client };
@@ -443,6 +453,87 @@ Rules: warm, brief, natural, never robotic, reference something specific you kno
   } catch (e) {
     console.error('Checkin error:', e.message);
     res.json({ message: null, isNew: false });
+  }
+});
+
+// ── WEEKLY RELATIONSHIP INSIGHT ───────────────────────────────────────────────
+// Generated once per week per companion from the last 7 days of messages.
+// Returns a structured emotional summary: themes, mood pattern, one observation,
+// one reflection question. Cached in DB so it doesn't burn API calls on reload.
+function getWeekKey() {
+  const d = new Date();
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+app.get('/api/insight', auth, async (req, res) => {
+  try {
+    const companion     = req.query.companion     || 'default';
+    const companionName = req.query.companionName || 'your companion';
+    const lang          = req.query.lang === 'es' ? 'es' : 'en';
+    const weekKey       = getWeekKey();
+
+    // Return cached insight if already generated this week
+    const cached = await DB.get(
+      'SELECT insight FROM weekly_insights WHERE user_id=? AND companion=? AND week_key=?',
+      req.user.id, companion, weekKey
+    );
+    if (cached) return res.json({ insight: JSON.parse(cached.insight), isNew: false, weekKey });
+
+    // Get last 7 days of user messages (user-side only — what THEY said)
+    const since = new Date(Date.now() - 7 * 86400000).toISOString();
+    const rows  = await DB.all(
+      `SELECT content, created_at FROM messages
+       WHERE user_id=? AND companion=? AND role='user' AND created_at > ?
+       ORDER BY id ASC LIMIT 60`,
+      req.user.id, companion, since
+    );
+
+    // Need at least 3 messages to generate a meaningful insight
+    if (rows.length < 3) return res.json({ insight: null, isNew: false, weekKey });
+
+    if (!GROQ_KEY) return res.json({ insight: null, isNew: false, weekKey });
+
+    const transcript = rows.map((r, i) => `[${i + 1}] ${r.content}`).join('\n');
+
+    const sys = lang === 'es'
+      ? `Eres ${companionName}, el compañero de IA de este usuario. Analiza sus mensajes de esta semana y genera un resumen emocional semanal.
+Responde SOLO con JSON válido, sin backticks ni texto adicional:
+{
+  "themes": ["tema1","tema2","tema3"],
+  "moodPattern": "una oración que describe el patrón emocional de la semana",
+  "observation": "una cosa específica y personal que notaste sobre el usuario esta semana (max 2 oraciones, cálido y directo)",
+  "question": "una pregunta de reflexión profunda pero suave que lo invita a pensar"
+}
+Sé cálido, específico y humano. No seas genérico ni clínico.`
+      : `You are ${companionName}, this user's AI companion. Analyze their messages from this week and generate a weekly emotional summary.
+Reply ONLY with valid JSON, no backticks or extra text:
+{
+  "themes": ["theme1","theme2","theme3"],
+  "moodPattern": "one sentence describing the emotional pattern of the week",
+  "observation": "one specific, personal thing you noticed about the user this week (max 2 sentences, warm and direct)",
+  "question": "one deep but gentle reflection question that invites them to think"
+}
+Be warm, specific, and human. Never generic or clinical.`;
+
+    const raw     = await groqChat(CHAT_MODELS,
+      [{ role: 'user', content: `Messages from this week:\n${transcript}` }],
+      sys, 350);
+    const insight = JSON.parse(raw.replace(/```json|```/g, '').trim());
+
+    // Cache it for the rest of the week
+    await DB.run(
+      `INSERT INTO weekly_insights (user_id,companion,week_key,insight,created_at)
+       VALUES (?,?,?,?,?)
+       ON CONFLICT(user_id,companion,week_key) DO UPDATE SET insight=excluded.insight`,
+      req.user.id, companion, weekKey, JSON.stringify(insight), new Date().toISOString()
+    );
+
+    res.json({ insight, isNew: true, weekKey });
+  } catch (e) {
+    console.error('Insight error:', e.message);
+    res.json({ insight: null, isNew: false });
   }
 });
 

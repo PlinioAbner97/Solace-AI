@@ -17,6 +17,8 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const [menuOpen, setMenuOpen] = useState(false);
   const [checkinMsg, setCheckinMsg] = useState(null);
   const [checkinVisible, setCheckinVisible] = useState(false);
+  const [insight, setInsight] = useState(null);
+  const [insightLoading, setInsightLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const navigate = useNavigate();
@@ -58,6 +60,21 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   }, [companion?.name, lang]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, sending]);
+
+  // Fetch weekly insight when user opens the Memory tab
+  useEffect(() => {
+    if (view !== 'memory' || !companion?.name || insight) return;
+    setInsightLoading(true);
+    api.getInsight(companion.name, companion.name, lang)
+      .then(({ insight: data }) => {
+        if (data) setInsight(data);
+      })
+      .catch(e => console.warn('Insight fetch failed:', e.message))
+      .finally(() => setInsightLoading(false));
+  }, [view, companion?.name]);
+
+  // Reset insight when companion changes so it reloads fresh
+  useEffect(() => { setInsight(null); }, [companion?.name]);
 
   const accent = companion?.accent || 'var(--amber)';
 
@@ -356,6 +373,69 @@ export default function AppShell({ user, companion, memory: initMemory, messages
             <div className="inner-view">
               <div className="view-title">{t('memory_title_1')} <em>{compName}</em> {t('memory_title_em')}</div>
               <p className="view-sub">{t('memory_sub')}</p>
+
+              {/* ── WEEKLY INSIGHT CARD ── */}
+              {insightLoading && (
+                <div className="insight-loading">
+                  <div className="insight-loading-dots">
+                    <div className="t-dot" /><div className="t-dot" /><div className="t-dot" />
+                  </div>
+                  <span>{lang === 'es' ? `${compName} está reflexionando sobre tu semana…` : `${compName} is reflecting on your week…`}</span>
+                </div>
+              )}
+
+              {insight && !insightLoading && (
+                <div className="insight-card">
+                  <div className="insight-header">
+                    <div className="insight-icon">✦</div>
+                    <div>
+                      <div className="insight-title">
+                        {lang === 'es' ? 'Reflexión Semanal' : 'Weekly Reflection'}
+                      </div>
+                      <div className="insight-week">
+                        {lang === 'es' ? 'Esta semana con' : 'This week with'} {compName}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="insight-themes">
+                    {insight.themes?.map((theme, i) => (
+                      <span key={i} className="insight-theme">{theme}</span>
+                    ))}
+                  </div>
+
+                  <div className="insight-row">
+                    <div className="insight-label">
+                      {lang === 'es' ? '🌊 Patrón emocional' : '🌊 Emotional pattern'}
+                    </div>
+                    <div className="insight-value">{insight.moodPattern}</div>
+                  </div>
+
+                  <div className="insight-row">
+                    <div className="insight-label">
+                      {lang === 'es' ? '💡 Lo que noté' : '💡 What I noticed'}
+                    </div>
+                    <div className="insight-value">{insight.observation}</div>
+                  </div>
+
+                  <div className="insight-question">
+                    <div className="insight-q-label">
+                      {lang === 'es' ? 'Para reflexionar' : 'For reflection'}
+                    </div>
+                    <div className="insight-q-text">"{insight.question}"</div>
+                    <button className="insight-reply-btn" onClick={() => {
+                      setView('chat');
+                      setTimeout(() => {
+                        setInput(insight.question);
+                        inputRef.current?.focus();
+                      }, 200);
+                    }}>
+                      {lang === 'es' ? 'Responder a esto →' : 'Respond to this →'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="mem-grid">
                 {(!memory?.facts || memory.facts.length === 0) ? (
                   <div className="empty-box span2">

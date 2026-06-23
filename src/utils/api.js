@@ -44,6 +44,9 @@ export const api = {
   getCheckin: (companion, companionName, companionTrait, lang) =>
     call(`/checkin?companion=${encodeURIComponent(companion || 'default')}&companionName=${encodeURIComponent(companionName||'')}&companionTrait=${encodeURIComponent(companionTrait||'')}&lang=${lang||'en'}`),
 
+  getInsight: (companion, companionName, lang) =>
+    call(`/insight?companion=${encodeURIComponent(companion || 'default')}&companionName=${encodeURIComponent(companionName||'')}&lang=${lang||'en'}`),
+
   testAI: () => call('/test-ai'),
 };
 

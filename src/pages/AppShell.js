@@ -19,6 +19,10 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const [checkinVisible, setCheckinVisible] = useState(false);
   const [insight, setInsight] = useState(null);
   const [insightLoading, setInsightLoading] = useState(false);
+  const [moodModal, setMoodModal] = useState(false);
+  const [todayMood, setTodayMood] = useState(null);
+  const [moodStreak, setMoodStreak] = useState(0);
+  const [moodHistory, setMoodHistory] = useState([]);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const navigate = useNavigate();
@@ -76,6 +80,20 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   // Reset insight when companion changes so it reloads fresh
   useEffect(() => { setInsight(null); }, [companion?.name]);
 
+  // Fetch mood streak on mount; show daily mood modal if not yet logged today
+  useEffect(() => {
+    api.getMoodStreak().then(({ streak, todayMood: tm, history }) => {
+      setMoodStreak(streak);
+      setMoodHistory(history || []);
+      if (tm) {
+        setTodayMood(tm);
+      } else {
+        // Small delay so the app feels settled before the modal appears
+        setTimeout(() => setMoodModal(true), 1200);
+      }
+    }).catch(() => {});
+  }, []);
+
   const accent = companion?.accent || 'var(--amber)';
 
   const sendMessage = useCallback(async () => {
@@ -95,7 +113,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
       }));
 
       // Pass the current language so the companion replies in the right one
-      const systemPrompt = buildSystemPrompt(user, memory, companion, mode, lang);
+      const systemPrompt = buildSystemPrompt(user, memory, companion, mode, lang, todayMood);
       const { reply } = await api.chat(apiHistory, systemPrompt);
 
       const aiMsg = { role: 'assistant', content: reply, time: nowTime() };
@@ -179,6 +197,19 @@ export default function AppShell({ user, companion, memory: initMemory, messages
     setTimeout(() => setCheckinMsg(null), 400);
   };
 
+  const submitMood = async (mood, score) => {
+    setTodayMood({ mood, score });
+    setMoodModal(false);
+    try {
+      await api.logMood(mood, score, null);
+      const { streak, history } = await api.getMoodStreak();
+      setMoodStreak(streak);
+      setMoodHistory(history || []);
+    } catch (e) {
+      console.warn('Mood log failed:', e.message);
+    }
+  };
+
   const modes = [
     { id: 'friend',  emoji: '💬', label: t('mode_friend') },
     { id: 'coach',   emoji: '🎯', label: t('mode_coach') },
@@ -247,6 +278,19 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                 <div>📝 {memory?.timeline?.length || 0} {t('sb_milestones')}</div>
                 <div>💬 {messages.length} {t('sb_messages')}</div>
               </div>
+              {moodStreak > 0 && (
+                <div className="sb-streak">
+                  <span className="sb-streak-fire">🔥</span>
+                  <span>{moodStreak} {lang === 'es' ? 'días seguidos' : 'day streak'}</span>
+                  {todayMood && <span className="sb-streak-today">{todayMood.mood}</span>}
+                </div>
+              )}
+              {!moodStreak && todayMood && (
+                <div className="sb-streak">
+                  <span className="sb-streak-fire">✨</span>
+                  <span>{lang === 'es' ? 'Hoy:' : 'Today:'} {todayMood.mood}</span>
+                </div>
+              )}
               <div className="prog-bar" style={{ marginTop: 10 }}>
                 <div className="prog-fill" style={{ width: `${Math.min(100, ((memory?.facts?.length || 0) / 20) * 100)}%` }} />
               </div>
@@ -547,6 +591,41 @@ export default function AppShell({ user, companion, memory: initMemory, messages
         </div>
       </div>
 
+      {/* ── DAILY MOOD CHECK-IN MODAL ── */}
+      {moodModal && (
+        <>
+          <div className="mood-overlay" onClick={() => setMoodModal(false)} />
+          <div className="mood-modal">
+            <div className="mood-modal-handle" />
+            <div className="mood-modal-title">
+              {lang === 'es' ? `¿Cómo te sientes hoy,` : `How are you feeling today,`} <em>{user?.name}</em>?
+            </div>
+            <div className="mood-modal-sub">
+              {lang === 'es'
+                ? `${compName} quiere saber antes de empezar`
+                : `${compName} wants to know before you start`}
+            </div>
+            <div className="mood-options">
+              {[
+                { emoji: '😔', label: lang === 'es' ? 'Mal'        : 'Rough',    score: 1 },
+                { emoji: '😕', label: lang === 'es' ? 'Regular'    : 'Low',      score: 2 },
+                { emoji: '😐', label: lang === 'es' ? 'Neutro'     : 'Okay',     score: 3 },
+                { emoji: '🙂', label: lang === 'es' ? 'Bien'       : 'Good',     score: 4 },
+                { emoji: '😊', label: lang === 'es' ? 'Muy bien'   : 'Great',    score: 5 },
+              ].map(m => (
+                <button key={m.score} className="mood-option" onClick={() => submitMood(m.label, m.score)}>
+                  <span className="mood-option-emoji">{m.emoji}</span>
+                  <span className="mood-option-label">{m.label}</span>
+                </button>
+              ))}
+            </div>
+            <button className="mood-skip" onClick={() => setMoodModal(false)}>
+              {lang === 'es' ? 'Saltar por hoy' : 'Skip for today'}
+            </button>
+          </div>
+        </>
+      )}
+
       {/* ── MOBILE MENU (bottom sheet) ── */}
       {menuOpen && (
         <>
@@ -571,6 +650,15 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                 <div>📝 {memory?.timeline?.length || 0} {t('sb_milestones')}</div>
                 <div>💬 {messages.length} {t('sb_messages')}</div>
               </div>
+              {(moodStreak > 0 || todayMood) && (
+                <div className="sb-streak" style={{ marginTop: 8 }}>
+                  <span className="sb-streak-fire">{moodStreak > 0 ? '🔥' : '✨'}</span>
+                  <span>{moodStreak > 0
+                    ? `${moodStreak} ${lang === 'es' ? 'días seguidos' : 'day streak'}`
+                    : `${lang === 'es' ? 'Hoy:' : 'Today:'} ${todayMood?.mood}`}
+                  </span>
+                </div>
+              )}
               <div className="prog-bar" style={{ marginTop: 10 }}>
                 <div className="prog-fill" style={{ width: `${Math.min(100, ((memory?.facts?.length || 0) / 20) * 100)}%` }} />
               </div>

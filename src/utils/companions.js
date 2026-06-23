@@ -25,7 +25,7 @@ export function pickRandomCompanion(gender) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-export function buildSystemPrompt(user, memory, companion, mode, lang = 'en') {
+export function buildSystemPrompt(user, memory, companion, mode, lang = 'en', todayMood = null) {
   const profile   = memory?.profile    || {};
   const facts     = memory?.facts      || [];
   const moods     = memory?.moodHistory || [];
@@ -74,7 +74,7 @@ ${profile.about      ? `- En sus propias palabras: "${profile.about}"` : ''}
 ${facts.length ? facts.map(f => `- ${f}`).join('\n') : '- Todavía los estás conociendo — escucha con atención y haz preguntas reflexivas.'}
 
 ## Contexto emocional
-${lastMood ? `- Último estado de ánimo conocido: ${lastMood.mood} (${lastMood.date})` : '- Sin datos de ánimo aún. Pregunta con calidez.'}
+${todayMood ? `- ESTADO DE ÁNIMO DE HOY (recién registrado): ${todayMood.mood} — deja que esto moldee el tono de tu primera respuesta` : lastMood ? `- Último estado de ánimo conocido: ${lastMood.mood} (${lastMood.date})` : '- Sin datos de ánimo aún. Pregunta con calidez.'}
 
 ## Modo actual
 ${modes[mode] || modes.friend}
@@ -110,7 +110,7 @@ ${profile.about      ? `- In their own words: "${profile.about}"` : ''}
 ${facts.length ? facts.map(f => `- ${f}`).join('\n') : '- You are still getting to know them — listen carefully and ask thoughtful questions.'}
 
 ## Emotional context
-${lastMood ? `- Last known mood: ${lastMood.mood} (${lastMood.date})` : '- No mood data yet. Check in warmly.'}
+${todayMood ? `- TODAY'S MOOD (just logged by the user): ${todayMood.mood} — let this shape the tone of your very first response` : lastMood ? `- Last known mood: ${lastMood.mood} (${lastMood.date})` : '- No mood data yet. Check in warmly.'}
 
 ## Current mode
 ${modes[mode] || modes.friend}

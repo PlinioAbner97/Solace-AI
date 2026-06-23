@@ -55,7 +55,10 @@ async function initDB() {
       companion TEXT NOT NULL DEFAULT 'default', week_key TEXT NOT NULL,
       insight TEXT NOT NULL, created_at TEXT NOT NULL,
       UNIQUE(user_id, companion, week_key))`);
-
+    await client.execute(`CREATE TABLE IF NOT EXISTS mood_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+      mood TEXT NOT NULL, score INTEGER NOT NULL,
+      note TEXT, date_key TEXT NOT NULL, created_at TEXT NOT NULL)`);
     // ── AUTO-MIGRATION: detect old schema (no companion column) and rebuild ──
     try {
       const cols = await client.execute(`PRAGMA table_info(user_memory)`);
@@ -119,6 +122,10 @@ async function initDB() {
         companion TEXT NOT NULL DEFAULT 'default', week_key TEXT NOT NULL,
         insight TEXT NOT NULL, created_at TEXT NOT NULL,
         UNIQUE(user_id, companion, week_key));
+      CREATE TABLE IF NOT EXISTS mood_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+        mood TEXT NOT NULL, score INTEGER NOT NULL,
+        note TEXT, date_key TEXT NOT NULL, created_at TEXT NOT NULL);
     `);
     console.log('✦ Using local SQLite:', DB_PATH);
     return { type: 'sqlite', client };
@@ -534,6 +541,75 @@ Be warm, specific, and human. Never generic or clinical.`;
   } catch (e) {
     console.error('Insight error:', e.message);
     res.json({ insight: null, isNew: false });
+  }
+});
+
+// ── MOOD LOGGING ─────────────────────────────────────────────────────────────
+// POST /api/mood — save today's mood entry (one per day, upserts)
+app.post('/api/mood', auth, async (req, res) => {
+  try {
+    const { mood, score, note } = req.body;
+    if (!mood || score === undefined) return res.status(400).json({ error: 'mood and score required' });
+    const dateKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    // Check if already logged today — update if so
+    const existing = await DB.get(
+      'SELECT id FROM mood_logs WHERE user_id=? AND date_key=?',
+      req.user.id, dateKey
+    );
+    if (existing) {
+      await DB.run(
+        'UPDATE mood_logs SET mood=?, score=?, note=?, created_at=? WHERE user_id=? AND date_key=?',
+        mood, score, note || null, new Date().toISOString(), req.user.id, dateKey
+      );
+    } else {
+      await DB.run(
+        'INSERT INTO mood_logs (user_id, mood, score, note, date_key, created_at) VALUES (?,?,?,?,?,?)',
+        req.user.id, mood, score, note || null, dateKey, new Date().toISOString()
+      );
+    }
+    res.json({ ok: true, dateKey });
+  } catch (e) {
+    console.error('Mood log error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/mood/streak — returns streak count, today's mood if already logged, recent 14-day history
+app.get('/api/mood/streak', auth, async (req, res) => {
+  try {
+    const rows = await DB.all(
+      'SELECT mood, score, date_key FROM mood_logs WHERE user_id=? ORDER BY date_key DESC LIMIT 30',
+      req.user.id
+    );
+
+    if (!rows.length) return res.json({ streak: 0, todayMood: null, history: [] });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const todayMood = rows.find(r => r.date_key === today) || null;
+
+    // Calculate streak: consecutive days ending today (or yesterday if today not logged yet)
+    let streak = 0;
+    let check  = new Date();
+    if (!todayMood) check.setDate(check.getDate() - 1); // allow yesterday to still count
+    for (let i = 0; i < 30; i++) {
+      const key = check.toISOString().slice(0, 10);
+      if (rows.find(r => r.date_key === key)) {
+        streak++;
+        check.setDate(check.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    res.json({
+      streak,
+      todayMood: todayMood ? { mood: todayMood.mood, score: todayMood.score } : null,
+      history: rows.slice(0, 14).reverse() // oldest→newest for chart
+    });
+  } catch (e) {
+    console.error('Streak error:', e.message);
+    res.json({ streak: 0, todayMood: null, history: [] });
   }
 });
 

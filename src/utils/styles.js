@@ -562,6 +562,72 @@ export const globalCss = `
     font-family: 'Inter', sans-serif; font-size: 13.5px; cursor: pointer;
   }
 
+  /* ── DAILY MOOD CHECK-IN MODAL ── */
+  .mood-overlay {
+    position: fixed; inset: 0; z-index: 95;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(6px);
+    animation: fadeUp 0.35s var(--ease-slow);
+  }
+  .mood-modal {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 96;
+    background: rgba(14,12,10,0.92);
+    backdrop-filter: blur(40px) saturate(160%);
+    -webkit-backdrop-filter: blur(40px) saturate(160%);
+    border-top: 1px solid var(--border2);
+    border-radius: 28px 28px 0 0;
+    padding: 14px 28px max(28px, env(safe-area-inset-bottom));
+    box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset, 0 -20px 60px rgba(0,0,0,0.5);
+    animation: sheetUp 0.5s var(--ease-slow);
+  }
+  .mood-modal-handle {
+    width: 36px; height: 4px; border-radius: 4px;
+    background: var(--border2); margin: 0 auto 22px;
+  }
+  .mood-modal-title {
+    font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 300;
+    text-align: center; margin-bottom: 6px; line-height: 1.3;
+  }
+  .mood-modal-title em { font-style: italic; color: var(--warm); }
+  .mood-modal-sub {
+    font-size: 13px; color: var(--muted2); text-align: center; margin-bottom: 28px;
+  }
+  .mood-options {
+    display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .mood-option {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 16px 14px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--glass); backdrop-filter: blur(16px);
+    cursor: pointer; transition: all .4s var(--ease); min-width: 72px; flex: 1;
+  }
+  .mood-option:hover, .mood-option:active {
+    border-color: var(--warm-dim); background: rgba(232,199,154,0.12);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.25);
+  }
+  .mood-option-emoji { font-size: 28px; line-height: 1; }
+  .mood-option-label {
+    font-size: 11px; color: var(--muted2); font-weight: 400;
+    letter-spacing: 0.02em; white-space: nowrap;
+  }
+  .mood-skip {
+    display: block; margin: 0 auto; background: transparent; border: none;
+    color: var(--muted); font-family: 'Inter', sans-serif; font-size: 12px;
+    cursor: pointer; transition: color .3s var(--ease); padding: 8px;
+  }
+  .mood-skip:hover { color: var(--muted2); }
+
+  /* streak indicator in sidebar */
+  .sb-streak {
+    display: flex; align-items: center; gap: 7px; margin-top: 9px;
+    font-size: 12px; color: var(--muted2); padding: 6px 8px;
+    background: rgba(232,199,154,0.08); border-radius: 8px;
+    border: 1px solid rgba(232,199,154,0.12);
+  }
+  .sb-streak-fire { font-size: 14px; }
+  .sb-streak-today { margin-left: auto; color: var(--warm-dim); font-size: 11px; }
+
   @keyframes sheetUp {
     from { transform: translateY(100%); }
     to { transform: translateY(0); }

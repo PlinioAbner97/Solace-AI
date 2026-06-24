@@ -50,6 +50,9 @@ export const api = {
   logMood:    (mood, score, note) => call('/mood', 'POST', { mood, score, note }),
   getMoodStreak: ()               => call('/mood/streak'),
 
+  summarizeSession: (companion, companionName, lang, messages) =>
+    call('/summarize-session', 'POST', { companion, companionName, lang, messages }),
+
   testAI: () => call('/test-ai'),
 };
 

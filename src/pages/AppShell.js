@@ -210,6 +210,16 @@ export default function AppShell({ user, companion, memory: initMemory, messages
     }
   };
 
+  // Wrap setView so leaving the chat triggers a background session summary
+  const changeView = (newView) => {
+    if (view === 'chat' && newView !== 'chat' && messages.length >= 4) {
+      // Fire-and-forget — never blocks the user, runs silently in background
+      api.summarizeSession(companion?.name, companion?.name, lang, messages)
+        .catch(() => {}); // truly silent
+    }
+    setView(newView);
+  };
+
   const modes = [
     { id: 'friend',  emoji: '💬', label: t('mode_friend') },
     { id: 'coach',   emoji: '🎯', label: t('mode_coach') },
@@ -254,20 +264,20 @@ export default function AppShell({ user, companion, memory: initMemory, messages
 
           <div className="sb-nav">
             <div className="sb-section">{t('sb_companion')}</div>
-            <button className={`sb-item${view === 'chat' ? ' active' : ''}`} onClick={() => setView('chat')}>
+            <button className={`sb-item${view === 'chat' ? ' active' : ''}`} onClick={() => changeView('chat')}>
               <span className="sb-icon">✦</span> {t('sb_chatWith')} {compName}
             </button>
 
             <div className="sb-section">{t('sb_yourStory')}</div>
-            <button className={`sb-item${view === 'memory' ? ' active' : ''}`} onClick={() => setView('memory')}>
+            <button className={`sb-item${view === 'memory' ? ' active' : ''}`} onClick={() => changeView('memory')}>
               <span className="sb-icon">🧠</span> {t('sb_memoryFacts')}
             </button>
-            <button className={`sb-item${view === 'journal' ? ' active' : ''}`} onClick={() => setView('journal')}>
+            <button className={`sb-item${view === 'journal' ? ' active' : ''}`} onClick={() => changeView('journal')}>
               <span className="sb-icon">📖</span> {t('sb_lifeJournal')}
             </button>
 
             <div className="sb-section">{t('sb_you')}</div>
-            <button className={`sb-item${view === 'profile' ? ' active' : ''}`} onClick={() => setView('profile')}>
+            <button className={`sb-item${view === 'profile' ? ' active' : ''}`} onClick={() => changeView('profile')}>
               <span className="sb-icon">🌱</span> {t('sb_yourProfile')}
             </button>
 
@@ -525,6 +535,21 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                   </>
                 )}
               </div>
+
+              {/* Session summaries — shows the narrative thread of recent conversations */}
+              {memory?.sessionSummaries?.length > 0 && (
+                <div style={{ marginTop: 24, maxWidth: 880 }}>
+                  <div className="sb-stats-label" style={{ marginBottom: 14 }}>
+                    {lang === 'es' ? '💬 Conversaciones recientes' : '💬 Recent conversations'}
+                  </div>
+                  {[...memory.sessionSummaries].reverse().map((s, i) => (
+                    <div key={i} className="session-summary-item">
+                      <div className="session-summary-date">{s.date}</div>
+                      <div className="session-summary-text">{s.summary}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

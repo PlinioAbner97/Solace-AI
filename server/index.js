@@ -91,6 +91,12 @@ async function initDB() {
         await client.execute(`ALTER TABLE user_memory ADD COLUMN checkin_message TEXT`);
         console.log('✦ check-in columns added');
       }
+      const hasSessions = memCols.rows.some(r => r.name === 'session_summaries');
+      if (!hasSessions) {
+        console.log('⚠ Adding session_summaries column...');
+        await client.execute(`ALTER TABLE user_memory ADD COLUMN session_summaries TEXT DEFAULT '[]'`);
+        console.log('✦ session_summaries added');
+      }
     } catch (migErr) {
       console.error('Migration check failed (non-fatal):', migErr.message);
     }
@@ -112,6 +118,7 @@ async function initDB() {
         profile TEXT DEFAULT '{}', facts TEXT DEFAULT '[]',
         mood_history TEXT DEFAULT '[]', timeline TEXT DEFAULT '[]', updated_at TEXT,
         last_checkin_date TEXT, checkin_message TEXT,
+        session_summaries TEXT DEFAULT '[]',
         PRIMARY KEY (user_id, companion));
       CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
@@ -254,12 +261,13 @@ app.get('/api/auth/me', auth, async (req, res) => {
 app.get('/api/memory', auth, async (req, res) => {
   const companion = req.query.companion || 'default';
   const row = await DB.get('SELECT * FROM user_memory WHERE user_id = ? AND companion = ?', req.user.id, companion);
-  if (!row) return res.json({ profile:{}, facts:[], moodHistory:[], timeline:[] });
+  if (!row) return res.json({ profile:{}, facts:[], moodHistory:[], timeline:[], sessionSummaries:[] });
   res.json({
-    profile:     JSON.parse(row.profile      || '{}'),
-    facts:       JSON.parse(row.facts        || '[]'),
-    moodHistory: JSON.parse(row.mood_history || '[]'),
-    timeline:    JSON.parse(row.timeline     || '[]'),
+    profile:          JSON.parse(row.profile           || '{}'),
+    facts:            JSON.parse(row.facts             || '[]'),
+    moodHistory:      JSON.parse(row.mood_history      || '[]'),
+    timeline:         JSON.parse(row.timeline          || '[]'),
+    sessionSummaries: JSON.parse(row.session_summaries || '[]'),
   });
 });
 
@@ -610,6 +618,66 @@ app.get('/api/mood/streak', auth, async (req, res) => {
   } catch (e) {
     console.error('Streak error:', e.message);
     res.json({ streak: 0, todayMood: null, history: [] });
+  }
+});
+
+// ── SESSION SUMMARIZATION ─────────────────────────────────────────────────────
+// Called when user leaves the chat view after a meaningful conversation.
+// Generates a 2-3 sentence memory of what was discussed and appends it to
+// session_summaries (last 5 kept). These get injected into future prompts
+// so the companion remembers the arc of recent conversations, not just facts.
+app.post('/api/summarize-session', auth, async (req, res) => {
+  try {
+    const { companion, companionName, lang, messages: sessionMsgs } = req.body;
+    const comp = companion || 'default';
+
+    // Need at least 4 messages to be worth summarizing
+    if (!sessionMsgs || sessionMsgs.length < 4) return res.json({ ok: true, skipped: true });
+    if (!GROQ_KEY) return res.json({ ok: true, skipped: true });
+
+    // Build a compact transcript of just this session
+    const transcript = sessionMsgs
+      .slice(-20) // last 20 messages max
+      .map(m => `${m.role === 'user' ? 'User' : companionName}: ${m.content}`)
+      .join('\n');
+
+    const sys = lang === 'es'
+      ? `Eres el sistema de memoria de ${companionName}. Resume esta conversación en 2-3 oraciones breves desde la perspectiva del compañero. 
+Captura: de qué habló el usuario, cómo se sentía, y cualquier cosa importante que mencionó.
+Escribe en primera persona del compañero. Ej: "Plinio habló sobre su estrés laboral y mencionó que está pensando en cambiar de trabajo. Se sentía ansioso pero esperanzado."
+Responde SOLO con el resumen, sin comillas ni texto extra.`
+      : `You are ${companionName}'s memory system. Summarize this conversation in 2-3 short sentences from the companion's perspective.
+Capture: what the user talked about, how they felt, and anything important they mentioned.
+Write in first person as the companion. E.g. "Alex talked about job stress and mentioned thinking about changing careers. They seemed anxious but hopeful."
+Reply with ONLY the summary, no quotes or extra text.`;
+
+    const summary = await groqChat(
+      EXTRACT_MODELS,
+      [{ role: 'user', content: `Conversation:\n${transcript}` }],
+      sys, 150
+    );
+
+    if (!summary?.trim()) return res.json({ ok: true, skipped: true });
+
+    // Load existing summaries, append, keep last 5
+    const row = await DB.get(
+      'SELECT session_summaries FROM user_memory WHERE user_id=? AND companion=?',
+      req.user.id, comp
+    );
+    const existing = JSON.parse(row?.session_summaries || '[]');
+    const dateStr  = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const updated  = [...existing, { date: dateStr, summary: summary.trim() }].slice(-5);
+
+    await DB.run(
+      `INSERT INTO user_memory (user_id, companion, session_summaries, updated_at) VALUES (?,?,?,?)
+       ON CONFLICT(user_id, companion) DO UPDATE SET session_summaries=excluded.session_summaries, updated_at=excluded.updated_at`,
+      req.user.id, comp, JSON.stringify(updated), new Date().toISOString()
+    );
+
+    res.json({ ok: true, summary: summary.trim() });
+  } catch (e) {
+    console.error('Session summary error:', e.message);
+    res.json({ ok: true, skipped: true }); // non-fatal — never block the user
   }
 });
 

@@ -26,6 +26,7 @@ export function pickRandomCompanion(gender) {
 }
 
 export function buildSystemPrompt(user, memory, companion, mode, lang = 'en', todayMood = null) {
+  const sessionSummaries = memory?.sessionSummaries || [];
   const profile   = memory?.profile    || {};
   const facts     = memory?.facts      || [];
   const moods     = memory?.moodHistory || [];
@@ -73,6 +74,11 @@ ${profile.about      ? `- En sus propias palabras: "${profile.about}"` : ''}
 ## Lo que recuerdas sobre ellos/ellas
 ${facts.length ? facts.map(f => `- ${f}`).join('\n') : '- Todavía los estás conociendo — escucha con atención y haz preguntas reflexivas.'}
 
+## Sesiones recientes${sessionSummaries.length ? ` (últimas ${sessionSummaries.length})` : ' (ninguna aún)'}
+${sessionSummaries.length
+  ? sessionSummaries.map(s => `- ${s.date}: ${s.summary}`).join('\n')
+  : '- No hay sesiones resumidas aún — puede que sea una conversación temprana.'}
+
 ## Contexto emocional
 ${todayMood ? `- ESTADO DE ÁNIMO DE HOY (recién registrado): ${todayMood.mood} — deja que esto moldee el tono de tu primera respuesta` : lastMood ? `- Último estado de ánimo conocido: ${lastMood.mood} (${lastMood.date})` : '- Sin datos de ánimo aún. Pregunta con calidez.'}
 
@@ -108,6 +114,11 @@ ${profile.about      ? `- In their own words: "${profile.about}"` : ''}
 
 ## What you remember about them
 ${facts.length ? facts.map(f => `- ${f}`).join('\n') : '- You are still getting to know them — listen carefully and ask thoughtful questions.'}
+
+## Recent conversation sessions${sessionSummaries.length ? ` (last ${sessionSummaries.length})` : ' (none yet)'}
+${sessionSummaries.length
+  ? sessionSummaries.map(s => `- ${s.date}: ${s.summary}`).join('\n')
+  : '- No previous sessions summarized yet — this may be an early conversation.'}
 
 ## Emotional context
 ${todayMood ? `- TODAY'S MOOD (just logged by the user): ${todayMood.mood} — let this shape the tone of your very first response` : lastMood ? `- Last known mood: ${lastMood.mood} (${lastMood.date})` : '- No mood data yet. Check in warmly.'}

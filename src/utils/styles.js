@@ -810,6 +810,23 @@ export const globalCss = `
   .ta, .tr, .tl { color: var(--muted2); border-color: var(--border); background: var(--glass); }
   .span2 { grid-column:span 2; }
 
+  /* ── SESSION SUMMARY ITEMS in memory view ── */
+  .session-summary-item {
+    padding: 14px 18px; border-radius: 16px; margin-bottom: 10px;
+    background: var(--glass); border: 1px solid var(--border);
+    backdrop-filter: blur(16px);
+    transition: all .4s var(--ease); animation: fadeUp 0.5s var(--ease-slow);
+  }
+  .session-summary-item:hover { border-color: var(--border2); background: var(--glass-hover); }
+  .session-summary-date {
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--warm-dim); margin-bottom: 6px;
+  }
+  .session-summary-text {
+    font-size: 13.5px; color: var(--muted2); line-height: 1.65; font-weight: 300;
+    font-style: italic;
+  }
+
   .tl-wrap { position:relative; padding-left:32px; max-width:680px; }
   .tl-wrap::before { content:''; position:absolute; left:0; top:8px; bottom:0; width:1px; background: linear-gradient(180deg, var(--border2), var(--border), transparent); }
   .tl-item { position:relative; margin-bottom:32px; animation:fadeUp 0.6s var(--ease-slow); }

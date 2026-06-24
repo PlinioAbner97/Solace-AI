@@ -810,6 +810,76 @@ export const globalCss = `
   .ta, .tr, .tl { color: var(--muted2); border-color: var(--border); background: var(--glass); }
   .span2 { grid-column:span 2; }
 
+  /* ── RELATIONSHIP DASHBOARD ── */
+  .dashboard {
+    padding: 28px 40px 40px; overflow-y: auto; height: 100%;
+    display: flex; flex-direction: column; gap: 18px; max-width: 900px;
+  }
+  .dashboard::-webkit-scrollbar { width: 4px; }
+  .dashboard::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .dash-header {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--glass); border: 1px solid var(--border);
+    border-radius: 24px; padding: 22px 26px;
+    backdrop-filter: blur(24px);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset;
+    animation: fadeUp 0.6s var(--ease-slow);
+  }
+  .dash-companion { display: flex; align-items: center; gap: 16px; }
+  .dash-comp-av {
+    width: 60px; height: 60px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 28px;
+    border: 1px solid; flex-shrink: 0;
+    animation: breathe 6s ease-in-out infinite;
+  }
+  .dash-comp-name { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 400; }
+  .dash-comp-trait { font-size: 12px; color: var(--muted2); margin-top: 3px; font-style: italic; }
+
+  .dash-ring-wrap { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .dash-ring-label { font-size: 11px; color: var(--warm-dim); letter-spacing: .08em; text-align: center; }
+
+  .dash-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    animation: fadeUp 0.6s 0.1s var(--ease-slow) both;
+  }
+  .dash-stat {
+    background: var(--glass); border: 1px solid var(--border); border-radius: 18px;
+    padding: 18px 12px; text-align: center; backdrop-filter: blur(20px);
+    transition: all .4s var(--ease);
+  }
+  .dash-stat:hover { border-color: var(--border2); background: var(--glass-hover); }
+  .dash-stat-val { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; color: var(--cream); }
+  .dash-stat-lbl { font-size: 10px; color: var(--muted2); margin-top: 4px; letter-spacing: .04em; }
+
+  .dash-card {
+    background: var(--glass); border: 1px solid var(--border); border-radius: 22px;
+    padding: 22px 24px; backdrop-filter: blur(24px);
+    transition: all .4s var(--ease);
+    animation: fadeUp 0.6s 0.15s var(--ease-slow) both;
+  }
+  .dash-card:hover { border-color: var(--border2); }
+  .dash-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .dash-card-title { font-size: 13px; color: var(--cream); font-weight: 400; }
+  .dash-card-sub { font-size: 11px; color: var(--muted); }
+
+  .dash-sparkline-wrap { position: relative; }
+  .dash-sparkline-labels {
+    display: flex; justify-content: space-between; margin-top: 4px;
+    font-size: 14px; opacity: 0.5; padding: 0 2px;
+  }
+
+  .dash-facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .dash-fact-tag {
+    padding: 6px 14px; border-radius: 100px; font-size: 12px; font-weight: 300;
+    background: rgba(232,199,154,0.1); border: 1px solid rgba(232,199,154,0.2);
+    color: var(--cream); transition: all .3s var(--ease);
+  }
+  .dash-fact-tag:hover { background: rgba(232,199,154,0.18); }
+
   /* ── SESSION SUMMARY ITEMS in memory view ── */
   .session-summary-item {
     padding: 14px 18px; border-radius: 16px; margin-bottom: 10px;
@@ -997,6 +1067,19 @@ export const globalCss = `
     .input-hint { display: none; }
 
     .inner-view { padding: 20px 16px calc(80px + env(safe-area-inset-bottom)); }
+
+    .dashboard { padding: 16px 16px calc(80px + env(safe-area-inset-bottom)); gap: 14px; }
+    .dash-header { flex-direction: column; gap: 20px; align-items: flex-start; padding: 18px 20px; }
+    .dash-ring-wrap { flex-direction: row; gap: 14px; align-items: center; width: 100%; }
+    .dash-ring-label { text-align: left; }
+    .dash-comp-av { width: 48px; height: 48px; font-size: 22px; }
+    .dash-comp-name { font-size: 20px; }
+    .dash-stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .dash-stat { padding: 14px 10px; border-radius: 14px; }
+    .dash-stat-val { font-size: 22px; }
+    .dash-card { padding: 18px 16px; border-radius: 18px; }
+    .dash-facts { gap: 6px; }
+    .dash-fact-tag { font-size: 11.5px; padding: 5px 11px; }
     .view-title { font-size: 26px; }
     .view-sub { font-size: 13px; margin-bottom: 24px; }
 

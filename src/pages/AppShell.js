@@ -423,135 +423,210 @@ export default function AppShell({ user, companion, memory: initMemory, messages
           )}
 
           {/* ── MEMORY ── */}
-          {view === 'memory' && (
-            <div className="inner-view">
-              <div className="view-title">{t('memory_title_1')} <em>{compName}</em> {t('memory_title_em')}</div>
-              <p className="view-sub">{t('memory_sub')}</p>
+          {view === 'memory' && (() => {
+            // ── Relationship score calculation ──
+            const factScore    = Math.min(40, (memory?.facts?.length || 0) * 2);
+            const sessionScore = Math.min(20, (memory?.sessionSummaries?.length || 0) * 4);
+            const streakScore  = Math.min(20, moodStreak * 2);
+            const msgScore     = Math.min(20, Math.floor(messages.length / 5));
+            const relScore     = factScore + sessionScore + streakScore + msgScore;
+            const relLevel     = relScore < 20
+              ? (lang === 'es' ? 'Apenas comenzando' : 'Just Getting Started')
+              : relScore < 40
+              ? (lang === 'es' ? 'Construyendo conexión' : 'Building Connection')
+              : relScore < 60
+              ? (lang === 'es' ? 'Familiarizándonos' : 'Getting Close')
+              : relScore < 80
+              ? (lang === 'es' ? 'Amigos de verdad' : 'Real Friends')
+              : (lang === 'es' ? 'Vínculo profundo' : 'Deep Bond');
 
-              {/* ── WEEKLY INSIGHT CARD ── */}
-              {insightLoading && (
-                <div className="insight-loading">
-                  <div className="insight-loading-dots">
-                    <div className="t-dot" /><div className="t-dot" /><div className="t-dot" />
-                  </div>
-                  <span>{lang === 'es' ? `${compName} está reflexionando sobre tu semana…` : `${compName} is reflecting on your week…`}</span>
-                </div>
-              )}
+            // ── Days together ──
+            const daysLabel = user?.createdAt
+              ? Math.max(1, Math.round((Date.now() - new Date(user.createdAt).getTime()) / 86400000))
+              : 1;
 
-              {insight && !insightLoading && (
-                <div className="insight-card">
-                  <div className="insight-header">
-                    <div className="insight-icon">✦</div>
+            // ── SVG mood sparkline ──
+            const moodPoints = moodHistory.slice(-14);
+            const sparkW = 160, sparkH = 36;
+            const sparkPath = moodPoints.length > 1
+              ? moodPoints.map((p, i) => {
+                  const x = (i / (moodPoints.length - 1)) * sparkW;
+                  const y = sparkH - ((p.score / 5) * sparkH * 0.8 + sparkH * 0.1);
+                  return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+                }).join(' ')
+              : null;
+
+            // ── Ring circumference ──
+            const R = 44, circ = 2 * Math.PI * R;
+            const dash = circ - (Math.min(relScore, 100) / 100) * circ;
+
+            return (
+              <div className="dashboard">
+                {/* ── HEADER: companion + score ring + days ── */}
+                <div className="dash-header">
+                  <div className="dash-companion">
+                    <div className="dash-comp-av" style={{ background: `linear-gradient(135deg, ${accent}44, ${accent}22)`, borderColor: `${accent}44` }}>
+                      {companion?.emoji || '✦'}
+                    </div>
                     <div>
-                      <div className="insight-title">
-                        {lang === 'es' ? 'Reflexión Semanal' : 'Weekly Reflection'}
-                      </div>
-                      <div className="insight-week">
-                        {lang === 'es' ? 'Esta semana con' : 'This week with'} {compName}
-                      </div>
+                      <div className="dash-comp-name">{compName}</div>
+                      <div className="dash-comp-trait">{companion?.trait}</div>
                     </div>
                   </div>
 
-                  <div className="insight-themes">
-                    {insight.themes?.map((theme, i) => (
-                      <span key={i} className="insight-theme">{theme}</span>
+                  <div className="dash-ring-wrap">
+                    <svg width="112" height="112" viewBox="0 0 112 112">
+                      <circle cx="56" cy="56" r={R} fill="none" stroke="var(--border)" strokeWidth="6" />
+                      <circle cx="56" cy="56" r={R} fill="none"
+                        stroke="var(--warm)" strokeWidth="6"
+                        strokeDasharray={circ} strokeDashoffset={dash}
+                        strokeLinecap="round"
+                        transform="rotate(-90 56 56)"
+                        style={{ transition: 'stroke-dashoffset 1.2s var(--ease-slow)' }}
+                      />
+                      <text x="56" y="52" textAnchor="middle" fill="var(--cream)" fontSize="18" fontWeight="400" fontFamily="Cormorant Garamond, serif">{relScore}</text>
+                      <text x="56" y="68" textAnchor="middle" fill="var(--muted2)" fontSize="8.5" fontFamily="Inter, sans-serif" letterSpacing="0.05em">/ 100</text>
+                    </svg>
+                    <div className="dash-ring-label">{relLevel}</div>
+                  </div>
+                </div>
+
+                {/* ── STATS ROW ── */}
+                <div className="dash-stats">
+                  <div className="dash-stat">
+                    <div className="dash-stat-val">{daysLabel}</div>
+                    <div className="dash-stat-lbl">{lang === 'es' ? 'días juntos' : 'days together'}</div>
+                  </div>
+                  <div className="dash-stat">
+                    <div className="dash-stat-val">{memory?.facts?.length || 0}</div>
+                    <div className="dash-stat-lbl">{lang === 'es' ? 'datos sobre ti' : 'things known'}</div>
+                  </div>
+                  <div className="dash-stat">
+                    <div className="dash-stat-val">{memory?.sessionSummaries?.length || 0}</div>
+                    <div className="dash-stat-lbl">{lang === 'es' ? 'sesiones' : 'sessions'}</div>
+                  </div>
+                  <div className="dash-stat">
+                    <div className="dash-stat-val">{moodStreak > 0 ? `${moodStreak}🔥` : '—'}</div>
+                    <div className="dash-stat-lbl">{lang === 'es' ? 'racha' : 'streak'}</div>
+                  </div>
+                </div>
+
+                {/* ── MOOD SPARKLINE ── */}
+                {moodPoints.length > 1 && (
+                  <div className="dash-card">
+                    <div className="dash-card-header">
+                      <span className="dash-card-title">{lang === 'es' ? '🌊 Tendencia de ánimo' : '🌊 Mood trend'}</span>
+                      <span className="dash-card-sub">{lang === 'es' ? `últimos ${moodPoints.length} días` : `last ${moodPoints.length} days`}</span>
+                    </div>
+                    <div className="dash-sparkline-wrap">
+                      <svg width="100%" height="48" viewBox={`0 0 ${sparkW} ${sparkH}`} preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--warm)" stopOpacity="0.3"/>
+                            <stop offset="100%" stopColor="var(--warm)" stopOpacity="0"/>
+                          </linearGradient>
+                        </defs>
+                        {sparkPath && (
+                          <>
+                            <path d={`${sparkPath} L ${sparkW} ${sparkH} L 0 ${sparkH} Z`} fill="url(#sparkGrad)" />
+                            <path d={sparkPath} fill="none" stroke="var(--warm)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </>
+                        )}
+                        {moodPoints.map((p, i) => {
+                          const x = (i / (moodPoints.length - 1)) * sparkW;
+                          const y = sparkH - ((p.score / 5) * sparkH * 0.8 + sparkH * 0.1);
+                          return <circle key={i} cx={x} cy={y} r="2.5" fill="var(--warm)" opacity="0.8" />;
+                        })}
+                      </svg>
+                      <div className="dash-sparkline-labels">
+                        <span>😔</span><span>😐</span><span>😊</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── WEEKLY INSIGHT ── */}
+                {insightLoading && (
+                  <div className="insight-loading">
+                    <div className="insight-loading-dots">
+                      <div className="t-dot" /><div className="t-dot" /><div className="t-dot" />
+                    </div>
+                    <span>{lang === 'es' ? `${compName} está reflexionando sobre tu semana…` : `${compName} is reflecting on your week…`}</span>
+                  </div>
+                )}
+                {insight && !insightLoading && (
+                  <div className="insight-card">
+                    <div className="insight-header">
+                      <div className="insight-icon">✦</div>
+                      <div>
+                        <div className="insight-title">{lang === 'es' ? 'Reflexión Semanal' : 'Weekly Reflection'}</div>
+                        <div className="insight-week">{lang === 'es' ? 'Esta semana con' : 'This week with'} {compName}</div>
+                      </div>
+                    </div>
+                    <div className="insight-themes">
+                      {insight.themes?.map((theme, i) => <span key={i} className="insight-theme">{theme}</span>)}
+                    </div>
+                    <div className="insight-row">
+                      <div className="insight-label">{lang === 'es' ? '🌊 Patrón emocional' : '🌊 Emotional pattern'}</div>
+                      <div className="insight-value">{insight.moodPattern}</div>
+                    </div>
+                    <div className="insight-row">
+                      <div className="insight-label">{lang === 'es' ? '💡 Lo que noté' : '💡 What I noticed'}</div>
+                      <div className="insight-value">{insight.observation}</div>
+                    </div>
+                    <div className="insight-question">
+                      <div className="insight-q-label">{lang === 'es' ? 'Para reflexionar' : 'For reflection'}</div>
+                      <div className="insight-q-text">"{insight.question}"</div>
+                      <button className="insight-reply-btn" onClick={() => {
+                        setView('chat');
+                        setTimeout(() => { setInput(insight.question); inputRef.current?.focus(); }, 200);
+                      }}>
+                        {lang === 'es' ? 'Responder a esto →' : 'Respond to this →'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── FACTS ── */}
+                {memory?.facts?.length > 0 && (
+                  <div className="dash-card">
+                    <div className="dash-card-header">
+                      <span className="dash-card-title">{lang === 'es' ? `💡 Lo que ${compName} sabe sobre ti` : `💡 What ${compName} knows about you`}</span>
+                    </div>
+                    <div className="dash-facts">
+                      {memory.facts.map((f, i) => (
+                        <span key={i} className="dash-fact-tag">{f}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── SESSION SUMMARIES ── */}
+                {memory?.sessionSummaries?.length > 0 && (
+                  <div className="dash-card">
+                    <div className="dash-card-header">
+                      <span className="dash-card-title">{lang === 'es' ? '💬 Conversaciones recientes' : '💬 Recent conversations'}</span>
+                    </div>
+                    {[...memory.sessionSummaries].reverse().map((s, i) => (
+                      <div key={i} className="session-summary-item">
+                        <div className="session-summary-date">{s.date}</div>
+                        <div className="session-summary-text">{s.summary}</div>
+                      </div>
                     ))}
                   </div>
+                )}
 
-                  <div className="insight-row">
-                    <div className="insight-label">
-                      {lang === 'es' ? '🌊 Patrón emocional' : '🌊 Emotional pattern'}
-                    </div>
-                    <div className="insight-value">{insight.moodPattern}</div>
+                {/* ── EMPTY STATE ── */}
+                {!memory?.facts?.length && !memory?.sessionSummaries?.length && (
+                  <div className="empty-box">
+                    <div className="empty-icon">{companion?.emoji || '🌱'}</div>
+                    <div className="empty-title">{lang === 'es' ? 'Tu historia apenas comienza' : 'Your story is just beginning'}</div>
+                    <div className="empty-hint">{lang === 'es' ? `Empieza a chatear y ${compName} irá conociéndote` : `Start chatting and ${compName} will get to know you`}</div>
                   </div>
-
-                  <div className="insight-row">
-                    <div className="insight-label">
-                      {lang === 'es' ? '💡 Lo que noté' : '💡 What I noticed'}
-                    </div>
-                    <div className="insight-value">{insight.observation}</div>
-                  </div>
-
-                  <div className="insight-question">
-                    <div className="insight-q-label">
-                      {lang === 'es' ? 'Para reflexionar' : 'For reflection'}
-                    </div>
-                    <div className="insight-q-text">"{insight.question}"</div>
-                    <button className="insight-reply-btn" onClick={() => {
-                      setView('chat');
-                      setTimeout(() => {
-                        setInput(insight.question);
-                        inputRef.current?.focus();
-                      }, 200);
-                    }}>
-                      {lang === 'es' ? 'Responder a esto →' : 'Respond to this →'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="mem-grid">
-                {(!memory?.facts || memory.facts.length === 0) ? (
-                  <div className="empty-box span2">
-                    <div className="empty-icon">🌱</div>
-                    <div className="empty-title">{t('memory_emptyTitle')}</div>
-                    <div className="empty-hint">{t('memory_emptyHint', { name: compName })}</div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mem-card span2">
-                      <div className="mc-icon">💡</div>
-                      <div className="mc-title">{t('memory_knowsTitle', { name: compName })}</div>
-                      <div style={{ marginTop: 8 }}>
-                        {memory.facts.map((f, i) => (
-                          <span key={i} className={`mtag ${i % 3 === 0 ? 'ta' : i % 3 === 1 ? 'tr' : 'tl'}`}>{f}</span>
-                        ))}
-                      </div>
-                    </div>
-                    {memory.moodHistory?.length > 0 && (
-                      <div className="mem-card">
-                        <div className="mc-icon">🌊</div>
-                        <div className="mc-title">{t('memory_recentMoods')}</div>
-                        <div style={{ marginTop: 8 }}>
-                          {memory.moodHistory.slice(-10).map((m, i) => (
-                            <span key={i} className="mtag tr">{m.mood}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <div className="mem-card">
-                      <div className="mc-icon">📊</div>
-                      <div className="mc-title">{t('memory_connectionDepth')}</div>
-                      <div className="mc-body">
-                        {memory.facts.length < 5  ? t('memory_depth_low') :
-                         memory.facts.length < 15 ? t('memory_depth_mid') :
-                                                    t('memory_depth_high', { name: compName })}
-                        <div className="prog-bar" style={{ marginTop: 12 }}>
-                          <div className="prog-fill" style={{ width: `${Math.min(100, (memory.facts.length / 20) * 100)}%` }} />
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{memory.facts.length} / 20+ {t('memory_factsCount')}</div>
-                      </div>
-                    </div>
-                  </>
                 )}
               </div>
-
-              {/* Session summaries — shows the narrative thread of recent conversations */}
-              {memory?.sessionSummaries?.length > 0 && (
-                <div style={{ marginTop: 24, maxWidth: 880 }}>
-                  <div className="sb-stats-label" style={{ marginBottom: 14 }}>
-                    {lang === 'es' ? '💬 Conversaciones recientes' : '💬 Recent conversations'}
-                  </div>
-                  {[...memory.sessionSummaries].reverse().map((s, i) => (
-                    <div key={i} className="session-summary-item">
-                      <div className="session-summary-date">{s.date}</div>
-                      <div className="session-summary-text">{s.summary}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+            );
+          })()}
 
           {/* ── JOURNAL ── */}
           {view === 'journal' && (

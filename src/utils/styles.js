@@ -230,6 +230,101 @@ export const globalCss = `
 
   /* ── SECTIONS ── */
   .section { position:relative; padding:120px 24px; }
+
+  /* ── LIVE PREVIEW SECTION ── */
+  .preview-section { padding: 100px 24px; }
+  .preview-container {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 72px; align-items: center; max-width: 1100px; margin: 0 auto;
+  }
+  .preview-text { text-align: left; }
+
+  /* The phone shell */
+  .preview-wrap { display: flex; justify-content: center; align-items: center; }
+  .preview-phone {
+    width: 100%; max-width: 380px;
+    background: rgba(16,14,12,0.85);
+    backdrop-filter: blur(32px) saturate(150%);
+    -webkit-backdrop-filter: blur(32px) saturate(150%);
+    border: 1px solid var(--border2); border-radius: 28px;
+    overflow: hidden;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.08) inset,
+      0 40px 80px rgba(0,0,0,0.55),
+      0 0 0 1px rgba(0,0,0,0.3);
+  }
+  .preview-phone-hdr {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+  .preview-comp-av {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(255,248,238,0.1); border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center; font-size: 17px;
+    animation: breathe 5s ease-in-out infinite;
+  }
+  .preview-comp-name { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 400; }
+  .preview-comp-status {
+    font-size: 10.5px; color: var(--green); display: flex; align-items: center; gap: 5px; margin-top: 1px;
+  }
+  .preview-comp-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 6px var(--green);
+    animation: pulse 2.5s infinite;
+  }
+
+  /* Memory context pills — shows what Luna knows */
+  .preview-memory-bar {
+    padding: 10px 16px 8px;
+    background: rgba(232,199,154,0.04);
+    border-bottom: 1px solid var(--border);
+  }
+  .preview-memory-label-sm {
+    font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--warm-dim); margin-bottom: 7px;
+  }
+  .preview-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+  .preview-pill {
+    font-size: 10.5px; padding: 3px 10px; border-radius: 100px;
+    background: rgba(232,199,154,0.08); border: 1px solid rgba(232,199,154,0.15);
+    color: var(--muted2); opacity: 0; transform: translateY(4px);
+    transition: opacity 0.5s var(--ease-slow), transform 0.5s var(--ease-slow);
+  }
+  .preview-pill.preview-pill-vis { opacity: 1; transform: translateY(0); }
+
+  /* Messages */
+  .preview-msgs {
+    padding: 16px; display: flex; flex-direction: column;
+    gap: 10px; min-height: 260px;
+  }
+  .preview-msg {
+    max-width: 82%; padding: 10px 14px; border-radius: 16px;
+    font-size: 13px; line-height: 1.6; font-weight: 300;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 0.6s var(--ease-slow), transform 0.6s var(--ease-slow);
+  }
+  .preview-msg.preview-msg-vis { opacity: 1; transform: translateY(0); }
+  .preview-msg-ai {
+    background: linear-gradient(135deg, rgba(232,180,150,0.16), rgba(217,140,150,0.08));
+    border: 1px solid rgba(232,180,150,0.2);
+    border-radius: 16px 16px 16px 4px; color: var(--cream);
+  }
+  .preview-msg-user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, rgba(150,170,232,0.14), rgba(170,150,232,0.1));
+    border: 1px solid rgba(170,165,232,0.2);
+    border-radius: 16px 16px 4px 16px; color: var(--cream);
+  }
+  .preview-typing {
+    display: flex; gap: 4px; align-items: center; padding: 10px 14px;
+    width: fit-content;
+    background: linear-gradient(135deg, rgba(232,180,150,0.16), rgba(217,140,150,0.08));
+    border: 1px solid rgba(232,180,150,0.2); border-radius: 16px 16px 16px 4px;
+  }
+
+
   .container { max-width:1100px; margin:0 auto; }
   .sec-label { font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted2); margin-bottom:18px; }
   .sec-title { font-family:'Cormorant Garamond',serif; font-size:clamp(34px,4.8vw,58px); font-weight:300; line-height:1.15; margin-bottom:18px; letter-spacing: -0.01em; }
@@ -957,6 +1052,13 @@ export const globalCss = `
     .lang-btn { padding: 5px 9px; font-size: 11px; }
 
     .hero { padding: 110px 20px 56px; min-height: auto; }
+
+    .preview-section { padding: 64px 20px; }
+    .preview-container { grid-template-columns: 1fr; gap: 40px; }
+    .preview-text { text-align: center; }
+    .preview-phone { max-width: 100%; }
+    .preview-msgs { min-height: 200px; }
+    .preview-msg { font-size: 12.5px; }
     .hero-grid { grid-template-columns: 1fr; gap: 48px; text-align: center; }
     .hero-text { text-align: center; }
     .hero-eyebrow { justify-content: center; }

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { globalCss } from '../utils/styles';
 import { FEMALE_COMPANIONS, MALE_COMPANIONS } from '../utils/companions';
@@ -48,6 +48,86 @@ function MemoryConstellation({ t }) {
           <span className="mem-node-label">{t(n.id)}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+
+// ── LIVE CHAT PREVIEW — animated conversation that plays on scroll
+function LivePreview({ t }) {
+  const containerRef = useRef(null);
+  const [visible, setVisible] = useState(false);
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting && !visible) setVisible(true); },
+      { threshold: 0.3 }
+    );
+    if (containerRef.current) obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (step >= 6) return;
+    const delay = step === 0 ? 400 : step % 2 === 1 ? 1800 : 1000;
+    const timer = setTimeout(() => setStep(s => s + 1), delay);
+    return () => clearTimeout(timer);
+  }, [visible, step]);
+
+  const msgs = [
+    { role: 'user', key: 'preview_user1' },
+    { role: 'ai',   key: 'preview_ai1' },
+    { role: 'user', key: 'preview_user2' },
+    { role: 'ai',   key: 'preview_ai2' },
+    { role: 'user', key: 'preview_user3' },
+    { role: 'ai',   key: 'preview_ai3' },
+  ];
+
+  const pills = ['preview_memory_pill1','preview_memory_pill2','preview_memory_pill3'];
+
+  return (
+    <div className="preview-wrap" ref={containerRef}>
+      <div className="preview-phone">
+        <div className="preview-phone-hdr">
+          <div className="preview-comp-av">🌙</div>
+          <div style={{ flex: 1 }}>
+            <div className="preview-comp-name">Luna</div>
+            <div className="preview-comp-status">
+              <span className="preview-comp-dot" />
+              {t('sb_alwaysHere')}
+            </div>
+          </div>
+        </div>
+
+        <div className="preview-memory-bar">
+          <div className="preview-memory-label-sm">💡 {t('hero_memory_label')}</div>
+          <div className="preview-pills">
+            {pills.map((k, i) => (
+              <span key={i}
+                className={"preview-pill" + (step > i ? " preview-pill-vis" : "")}
+                style={{ transitionDelay: i * 0.12 + "s" }}>
+                {t(k)}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="preview-msgs">
+          {msgs.map((m, i) => (
+            <div key={i}
+              className={"preview-msg preview-msg-" + m.role + (step > i ? " preview-msg-vis" : "")}>
+              {t(m.key)}
+            </div>
+          ))}
+          {visible && step > 0 && step < 6 && (
+            <div className="preview-typing">
+              <div className="t-dot"/><div className="t-dot"/><div className="t-dot"/>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -122,11 +202,29 @@ export default function Home() {
           </svg>
         </div>
 
+        {/* LIVE PREVIEW */}
+        <section className="section preview-section">
+          <div className="container preview-container">
+            <div className="preview-text reveal" ref={ref(0)}>
+              <div className="sec-label">{t('preview_label')}</div>
+              <h2 className="sec-title">
+                {t('preview_title_1')}<br /><em>{t('preview_title_em')}</em>
+              </h2>
+              <p className="sec-body" style={{ marginBottom: 32 }}>{t('preview_sub')}</p>
+              <Link to="/auth?tab=signup" className="btn-primary">{t('hero_cta_primary')}</Link>
+            </div>
+            <LivePreview t={t} />
+          </div>
+        </section>
 
-        {/* COMPANIONS */}
+        <div className="thread-divider">
+          <svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M 0 6 Q 50 0, 100 6 T 200 6" className="thread-divider-path" />
+          </svg>
+        </div>
         <section className="section" id="companions">
           <div className="container">
-            <div className="reveal" ref={ref(0)}>
+            <div className="reveal" ref={ref(1)}>
               <div className="sec-label">{t('companions_label')}</div>
               <h2 className="sec-title">{t('companions_title_1')} <em>{t('companions_title_em')}</em></h2>
               <p className="sec-body">{t('companions_body')}</p>
@@ -137,7 +235,7 @@ export default function Home() {
                 const isFemale = FEMALE_COMPANIONS.includes(c);
                 const traitKey = `companion_${c.name.toLowerCase()}`;
                 return (
-                  <div key={i} className="comp-card reveal" ref={ref(i + 1)}>
+                  <div key={i} className="comp-card reveal" ref={ref(i + 2)}>
                     <span className="comp-emoji">{c.emoji}</span>
                     <div className="comp-name">{c.name}</div>
                     <div className="comp-trait">{t(traitKey)}</div>
@@ -149,7 +247,7 @@ export default function Home() {
               })}
             </div>
 
-            <div style={{ textAlign: 'center', marginTop: 48 }} className="reveal" ref={ref(10)}>
+            <div style={{ textAlign: 'center', marginTop: 48 }} className="reveal" ref={ref(11)}>
               <Link to="/auth?tab=signup" className="btn-primary">
                 {t('companions_meetAll')} {FEMALE_COMPANIONS.length + MALE_COMPANIONS.length} {t('companions_companionsWord')} →
               </Link>
@@ -161,7 +259,7 @@ export default function Home() {
         <section className="features-strip" id="features">
           <div className="features-row">
             {features.map((f, i) => (
-              <div key={i} className="feat reveal" ref={ref(11 + i)}>
+              <div key={i} className="feat reveal" ref={ref(12 + i)}>
                 <span className="feat-icon">{f.icon}</span>
                 <div className="feat-title">{f.title}</div>
                 <p className="feat-text">{f.text}</p>
@@ -172,7 +270,7 @@ export default function Home() {
 
         {/* CTA */}
         <section className="cta-section">
-          <div className="reveal" ref={ref(16)}>
+          <div className="reveal" ref={ref(17)}>
             <h2>{t('cta_title_1')}<br /><em>{t('cta_title_em')}</em></h2>
             <p className="cta-sub">{t('cta_sub')}</p>
             <div className="cta-actions">

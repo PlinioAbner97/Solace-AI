@@ -53,6 +53,11 @@ export const api = {
   summarizeSession: (companion, companionName, lang, messages) =>
     call('/summarize-session', 'POST', { companion, companionName, lang, messages }),
 
+  getMission:       (companion, companionName, lang) =>
+    call(`/mission?companion=${encodeURIComponent(companion||'default')}&companionName=${encodeURIComponent(companionName||'')}&lang=${lang||'en'}`),
+  completeMission:  (companion) =>
+    call('/mission/complete', 'POST', { companion: companion || 'default' }),
+
   testAI: () => call('/test-ai'),
 };
 

@@ -59,6 +59,11 @@ async function initDB() {
       id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
       mood TEXT NOT NULL, score INTEGER NOT NULL,
       note TEXT, date_key TEXT NOT NULL, created_at TEXT NOT NULL)`);
+    await client.execute(`CREATE TABLE IF NOT EXISTS daily_missions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+      companion TEXT NOT NULL DEFAULT 'default', date_key TEXT NOT NULL,
+      mission TEXT NOT NULL, completed INTEGER DEFAULT 0, created_at TEXT NOT NULL,
+      UNIQUE(user_id, companion, date_key))`);
     // ── AUTO-MIGRATION: detect old schema (no companion column) and rebuild ──
     try {
       const cols = await client.execute(`PRAGMA table_info(user_memory)`);
@@ -133,6 +138,11 @@ async function initDB() {
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
         mood TEXT NOT NULL, score INTEGER NOT NULL,
         note TEXT, date_key TEXT NOT NULL, created_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS daily_missions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+        companion TEXT NOT NULL DEFAULT 'default', date_key TEXT NOT NULL,
+        mission TEXT NOT NULL, completed INTEGER DEFAULT 0, created_at TEXT NOT NULL,
+        UNIQUE(user_id, companion, date_key));
     `);
     console.log('✦ Using local SQLite:', DB_PATH);
     return { type: 'sqlite', client };
@@ -678,6 +688,101 @@ Reply with ONLY the summary, no quotes or extra text.`;
   } catch (e) {
     console.error('Session summary error:', e.message);
     res.json({ ok: true, skipped: true }); // non-fatal — never block the user
+  }
+});
+
+// ── DAILY MISSION ─────────────────────────────────────────────────────────────
+// GET  /api/mission — returns today's mission (generates if needed, caches all day)
+// POST /api/mission/complete — marks today's mission as done
+app.get('/api/mission', auth, async (req, res) => {
+  try {
+    const companion     = req.query.companion     || 'default';
+    const companionName = req.query.companionName || 'your companion';
+    const lang          = req.query.lang === 'es' ? 'es' : 'en';
+    const dateKey       = new Date().toISOString().slice(0, 10);
+
+    // Return cached mission if already generated today
+    const cached = await DB.get(
+      'SELECT mission, completed FROM daily_missions WHERE user_id=? AND companion=? AND date_key=?',
+      req.user.id, companion, dateKey
+    );
+    if (cached) return res.json({
+      mission: cached.mission,
+      completed: !!cached.completed,
+      isNew: false,
+      dateKey
+    });
+
+    // Need memory context to make it personal
+    const row   = await DB.get('SELECT * FROM user_memory WHERE user_id=? AND companion=?', req.user.id, companion);
+    const facts = row ? JSON.parse(row.facts || '[]') : [];
+    const moods = row ? JSON.parse(row.mood_history || '[]') : [];
+    const summaries = row ? JSON.parse(row.session_summaries || '[]') : [];
+    const lastMood  = moods.length ? moods[moods.length - 1] : null;
+    const lastSess  = summaries.length ? summaries[summaries.length - 1] : null;
+
+    if (!GROQ_KEY) return res.json({ mission: null, completed: false, isNew: false });
+
+    const day = new Date().toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'long' });
+
+    const sys = lang === 'es'
+      ? `Eres ${companionName}. Genera UNA misión diaria breve y personal para ${req.user.name || 'tu usuario'} para hoy (${day}).
+La misión debe:
+- Ser completable en 2-5 minutos dentro de la app (chatear, reflexionar, responder algo)
+- Sentirse personal — referencia algo que sabes de ellos si puedes
+- Tener un verbo de acción claro
+- Ser breve: máximo 25 palabras
+Contexto: ${facts.length ? `sabes que ${facts.slice(0,3).join(', ')}` : 'aún los estás conociendo'}
+${lastMood ? `Último ánimo conocido: ${lastMood.mood}` : ''}
+${lastSess ? `Última sesión: ${lastSess.summary}` : ''}
+Responde SOLO con la misión, sin comillas ni explicaciones. Ejemplo: "Cuéntame una pequeña victoria de esta semana, por pequeña que sea."`
+      : `You are ${companionName}. Generate ONE short, personal daily mission for ${req.user.name || 'your user'} for today (${day}).
+The mission must:
+- Be completable in 2-5 minutes inside the app (chatting, reflecting, answering something)
+- Feel personal — reference something you know about them if possible
+- Have a clear action verb
+- Be brief: max 25 words
+Context: ${facts.length ? `you know that ${facts.slice(0,3).join(', ')}` : "you're still getting to know them"}
+${lastMood ? `Last known mood: ${lastMood.mood}` : ''}
+${lastSess ? `Last session: ${lastSess.summary}` : ''}
+Reply with ONLY the mission, no quotes or explanation. Example: "Tell me one small win from this week, however small it feels."`;
+
+    const mission = await groqChat(
+      EXTRACT_MODELS,
+      [{ role: 'user', content: 'Generate the daily mission now.' }],
+      sys, 80
+    );
+
+    if (!mission?.trim()) return res.json({ mission: null, completed: false, isNew: false });
+
+    const clean = mission.trim().replace(/^["']|["']$/g, '');
+
+    await DB.run(
+      `INSERT INTO daily_missions (user_id, companion, date_key, mission, completed, created_at)
+       VALUES (?,?,?,?,0,?)
+       ON CONFLICT(user_id, companion, date_key) DO NOTHING`,
+      req.user.id, companion, dateKey, clean, new Date().toISOString()
+    );
+
+    res.json({ mission: clean, completed: false, isNew: true, dateKey });
+  } catch (e) {
+    console.error('Mission error:', e.message);
+    res.json({ mission: null, completed: false, isNew: false });
+  }
+});
+
+app.post('/api/mission/complete', auth, async (req, res) => {
+  try {
+    const { companion } = req.body;
+    const comp    = companion || 'default';
+    const dateKey = new Date().toISOString().slice(0, 10);
+    await DB.run(
+      'UPDATE daily_missions SET completed=1 WHERE user_id=? AND companion=? AND date_key=?',
+      req.user.id, comp, dateKey
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: false });
   }
 });
 

@@ -792,6 +792,47 @@ export const globalCss = `
     to { transform: translateY(0); }
   }
 
+  /* ── DAILY MISSION CARD ── */
+  .mission-card {
+    margin: 16px 28px 0;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(143,208,160,0.1), rgba(100,200,180,0.06));
+    border: 1px solid rgba(143,208,160,0.22);
+    border-radius: 18px;
+    backdrop-filter: blur(20px);
+    transition: all 0.6s var(--ease-slow);
+    animation: fadeUp 0.7s var(--ease-slow);
+    flex-shrink: 0;
+  }
+  .mission-card.mission-done {
+    background: linear-gradient(135deg, rgba(143,208,160,0.07), rgba(100,200,180,0.03));
+    border-color: rgba(143,208,160,0.15);
+    opacity: 0.8;
+  }
+  .mission-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+  }
+  .mission-icon {
+    font-size: 14px; color: var(--green); font-weight: 500; flex-shrink: 0;
+  }
+  .mission-label {
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: rgba(143,208,160,0.7); flex: 1;
+  }
+  .mission-badge {
+    font-size: 11px; color: var(--green);
+    background: rgba(143,208,160,0.12); border: 1px solid rgba(143,208,160,0.2);
+    padding: 3px 10px; border-radius: 100px;
+  }
+  .mission-text {
+    font-family: 'Cormorant Garamond', serif; font-size: 16px; font-style: italic;
+    font-weight: 300; line-height: 1.55; color: var(--cream);
+    margin-bottom: 6px;
+  }
+  .mission-hint {
+    font-size: 11px; color: var(--muted2);
+  }
+
   /* ── DAILY CHECK-IN CARD — proactive warmth waiting for the user ── */
   .checkin-card {
     margin: 16px 28px 0;
@@ -1219,6 +1260,8 @@ export const globalCss = `
     .mode-btn { padding: 7px 12px; font-size: 12px; flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; }
     .mode-label-text { display: inline; }
 
+    .mission-card { margin: 12px 16px 0; padding: 13px 15px; }
+    .mission-text { font-size: 15px; }
     .checkin-card { margin: 12px 16px 0; padding: 15px 16px; gap: 11px; }
     .checkin-text { font-size: 15px; }
     .checkin-actions { flex-wrap: wrap; }

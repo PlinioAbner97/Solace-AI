@@ -25,6 +25,8 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const [moodHistory, setMoodHistory] = useState([]);
   const [shareCard, setShareCard] = useState(false);
   const canvasRef = useRef(null);
+  const [mission, setMission] = useState(null);
+  const [missionDone, setMissionDone] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const navigate = useNavigate();
@@ -82,6 +84,18 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   // Reset insight when companion changes so it reloads fresh
   useEffect(() => { setInsight(null); }, [companion?.name]);
 
+  // Fetch today's daily mission per companion
+  useEffect(() => {
+    if (!companion?.name) return;
+    setMission(null);
+    setMissionDone(false);
+    api.getMission(companion.name, companion.name, lang)
+      .then(({ mission: m, completed }) => {
+        if (m) { setMission(m); setMissionDone(!!completed); }
+      })
+      .catch(() => {});
+  }, [companion?.name]);
+
   // Fetch mood streak on mount; show daily mood modal if not yet logged today
   useEffect(() => {
     api.getMoodStreak().then(({ streak, todayMood: tm, history }) => {
@@ -125,6 +139,12 @@ export default function AppShell({ user, companion, memory: initMemory, messages
       api.saveMessage('assistant', reply, companion?.name).catch(e => console.warn('Save ai msg failed:', e.message));
 
       extractAndSaveMemory(userMsg.content);
+
+      // Mark today's mission complete on first message sent
+      if (mission && !missionDone) {
+        setMissionDone(true);
+        api.completeMission(companion?.name).catch(() => {});
+      }
     } catch (e) {
       console.error('Chat error:', e.message);
       const errText = e.message?.includes('GROQ') || e.message?.includes('AI')
@@ -506,6 +526,16 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                   <span>{lang === 'es' ? 'Hoy:' : 'Today:'} {todayMood.mood}</span>
                 </div>
               )}
+              {mission && (
+                <div className="sb-streak" style={{ marginTop: 4 }}>
+                  <span className="sb-streak-fire">{missionDone ? '✓' : '◎'}</span>
+                  <span style={{ color: missionDone ? 'var(--green)' : 'var(--muted2)' }}>
+                    {missionDone
+                      ? (lang === 'es' ? 'Misión cumplida' : 'Mission done')
+                      : (lang === 'es' ? 'Misión pendiente' : 'Mission pending')}
+                  </span>
+                </div>
+              )}
               <div className="prog-bar" style={{ marginTop: 10 }}>
                 <div className="prog-fill" style={{ width: `${Math.min(100, ((memory?.facts?.length || 0) / 20) * 100)}%` }} />
               </div>
@@ -559,6 +589,31 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                   ))}
                 </div>
               </div>
+
+              {/* ── DAILY MISSION CARD ── */}
+              {mission && (
+                <div className={`mission-card${missionDone ? ' mission-done' : ''}`}>
+                  <div className="mission-header">
+                    <div className="mission-icon">{missionDone ? '✓' : '◎'}</div>
+                    <div className="mission-label">
+                      {lang === 'es' ? 'Misión del día' : "Today's mission"}
+                    </div>
+                    {missionDone && (
+                      <div className="mission-badge">
+                        {lang === 'es' ? '¡Completada! 🔥' : 'Done! 🔥'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mission-text">"{mission}"</div>
+                  {!missionDone && (
+                    <div className="mission-hint">
+                      {lang === 'es'
+                        ? `Respóndele a ${compName} para completarla`
+                        : `Reply to ${compName} to complete it`}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {checkinMsg && (
                 <div className={`checkin-card${checkinVisible ? ' checkin-visible' : ''}`}>

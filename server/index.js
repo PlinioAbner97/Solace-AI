@@ -836,6 +836,82 @@ app.post('/api/mission/complete', auth, async (req, res) => {
   }
 });
 
+// ── MOOD HISTORY — 30-day calendar + weekly averages + AI monthly summary ────
+app.get('/api/mood/history', auth, async (req, res) => {
+  try {
+    const lang = req.query.lang === 'es' ? 'es' : 'en';
+
+    // Get last 35 days of mood logs
+    const since = new Date(Date.now() - 35 * 86400000).toISOString().slice(0,10);
+    const rows  = await DB.all(
+      'SELECT mood, score, date_key FROM mood_logs WHERE user_id=? AND date_key >= ? ORDER BY date_key ASC',
+      req.user.id, since
+    );
+
+    if (!rows.length) return res.json({ days:[], weeklyAvgs:[], monthlySummary:null });
+
+    // Build date map
+    const byDate = {};
+    rows.forEach(r => { byDate[r.date_key] = { mood: r.mood, score: Number(r.score) }; });
+
+    // Build 30-day array
+    const days = [];
+    for (let i = 29; i >= 0; i--) {
+      const d   = new Date(Date.now() - i * 86400000);
+      const key = d.toISOString().slice(0,10);
+      const day = d.getDate();
+      const dow = d.toLocaleDateString('en-US',{weekday:'short'});
+      days.push({ date: key, day, dow, ...(byDate[key] || { mood: null, score: null }) });
+    }
+
+    // Weekly averages (last 4 weeks)
+    const weeklyAvgs = [];
+    for (let w = 3; w >= 0; w--) {
+      const weekDays = days.slice(w * 7, w * 7 + 7);
+      const logged   = weekDays.filter(d => d.score !== null);
+      const avg      = logged.length ? (logged.reduce((s,d) => s+d.score,0) / logged.length) : null;
+      const weekStart = weekDays[0]?.date;
+      weeklyAvgs.push({ weekStart, avg: avg ? Math.round(avg * 10) / 10 : null, logged: logged.length });
+    }
+
+    // AI monthly summary (only if enough data — at least 7 entries)
+    let monthlySummary = null;
+    if (rows.length >= 7 && GROQ_KEY) {
+      try {
+        const avgScore = rows.reduce((s,r) => s+r.score, 0) / rows.length;
+        const moodCounts = {};
+        rows.forEach(r => { moodCounts[r.mood] = (moodCounts[r.mood]||0)+1; });
+        const topMood = Object.entries(moodCounts).sort((a,b)=>b[1]-a[1])[0]?.[0];
+
+        const sys = lang === 'es'
+          ? `Genera un resumen emocional breve y cálido (2-3 oraciones) de los últimos 30 días basado en estos datos de bienestar.
+Puntuación promedio: ${avgScore.toFixed(1)}/5
+Estado de ánimo más frecuente: ${topMood}
+Total de días registrados: ${rows.length}
+Escribe desde la perspectiva de un amigo que te conoce. Sé honesto pero alentador. Sin listas. Solo prosa cálida.`
+          : `Generate a brief, warm emotional summary (2-3 sentences) of the last 30 days based on this wellbeing data.
+Average score: ${avgScore.toFixed(1)}/5
+Most frequent mood: ${topMood}
+Total days logged: ${rows.length}
+Write as a caring friend who knows them. Be honest but encouraging. No lists. Just warm prose.`;
+
+        monthlySummary = await groqChat(
+          EXTRACT_MODELS,
+          [{role:'user', content:'Generate the monthly emotional summary now.'}],
+          sys, 120
+        );
+      } catch (e) {
+        console.warn('Monthly summary error:', e.message);
+      }
+    }
+
+    res.json({ days, weeklyAvgs, monthlySummary });
+  } catch (e) {
+    console.error('Mood history error:', e.message);
+    res.json({ days:[], weeklyAvgs:[], monthlySummary:null });
+  }
+});
+
 // ── START ─────────────────────────────────────────────────────────────────────
 initDB().then(store => {
   DB = makeDB(store);

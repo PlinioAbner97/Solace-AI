@@ -47,8 +47,9 @@ export const api = {
   getInsight: (companion, companionName, lang) =>
     call(`/insight?companion=${encodeURIComponent(companion || 'default')}&companionName=${encodeURIComponent(companionName||'')}&lang=${lang||'en'}`),
 
-  logMood:    (mood, score, note) => call('/mood', 'POST', { mood, score, note }),
-  getMoodStreak: ()               => call('/mood/streak'),
+  logMood:       (mood, score, note) => call('/mood', 'POST', { mood, score, note }),
+  getMoodStreak: ()                  => call('/mood/streak'),
+  getMoodHistory: (lang)             => call(`/mood/history?lang=${lang||'en'}`),
 
   summarizeSession: (companion, companionName, lang, messages) =>
     call('/summarize-session', 'POST', { companion, companionName, lang, messages }),

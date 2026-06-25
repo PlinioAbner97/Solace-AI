@@ -1289,6 +1289,82 @@ export const globalCss = `
   }
   .dash-fact-tag:hover { background: rgba(232,199,154,0.18); }
 
+  /* ── WELLBEING VIEW ── */
+  .wellbeing-view { max-width: 780px; }
+
+  .wb-log-prompt {
+    display: flex; align-items: center; gap: 14px; width: 100%;
+    background: linear-gradient(135deg, rgba(143,208,160,0.1), rgba(100,200,180,0.06));
+    border: 1px solid rgba(143,208,160,0.25); border-radius: 18px;
+    padding: 16px 20px; cursor: pointer; text-align: left; margin-bottom: 4px;
+    transition: all .4s var(--ease); animation: fadeUp 0.5s var(--ease-slow);
+  }
+  .wb-log-prompt:hover { transform: translateY(-2px); border-color: rgba(143,208,160,0.4); }
+  .wb-log-prompt > span:first-child { font-size: 22px; flex-shrink: 0; }
+  .wb-log-title { font-size: 14px; color: var(--cream); font-weight: 400; }
+  .wb-log-sub { font-size: 11.5px; color: var(--muted2); margin-top: 2px; }
+  .wb-log-arrow { font-size: 18px; color: var(--muted2); margin-left: auto; }
+
+  .wb-streak-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+  .wb-streak-card {
+    background: var(--glass); border: 1px solid var(--border); border-radius: 18px;
+    padding: 18px 12px; text-align: center; backdrop-filter: blur(16px);
+    animation: fadeUp 0.5s 0.06s var(--ease-slow) both;
+  }
+  .wb-streak-val { font-family:'Cormorant Garamond',serif; font-size: 28px; font-weight: 400; color: var(--cream); }
+  .wb-streak-lbl { font-size: 10px; color: var(--muted2); margin-top: 5px; letter-spacing:.04em; }
+
+  .wb-summary-card {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: linear-gradient(135deg, rgba(232,180,150,0.1), rgba(217,140,150,0.06));
+    border: 1px solid rgba(232,180,150,0.2); border-radius: 20px; padding: 20px;
+    backdrop-filter: blur(20px); animation: fadeUp 0.5s 0.1s var(--ease-slow) both;
+  }
+  .wb-summary-icon { font-size: 18px; color: var(--warm); flex-shrink: 0; margin-top: 2px; }
+  .wb-summary-label { font-size: 10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--warm-dim); margin-bottom: 7px; }
+  .wb-summary-text { font-size: 14px; color: var(--cream); line-height: 1.7; font-weight: 300; }
+
+  .wb-cal-wrap {
+    background: var(--glass); border: 1px solid var(--border); border-radius: 22px;
+    padding: 22px; backdrop-filter: blur(20px);
+    animation: fadeUp 0.5s 0.14s var(--ease-slow) both;
+  }
+  .wb-cal-title { font-size: 13px; color: var(--cream); margin-bottom: 16px; }
+  .wb-cal-grid {
+    display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px;
+  }
+  .wb-cal-cell {
+    aspect-ratio: 1; border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border: 1px solid rgba(255,255,255,0.06);
+    cursor: default; transition: transform .2s var(--ease);
+    position: relative;
+  }
+  .wb-cal-cell:hover { transform: scale(1.15); z-index: 2; }
+  .wb-cal-day { font-size: 8px; color: rgba(255,255,255,0.5); line-height: 1; }
+  .wb-cal-emoji { font-size: 11px; line-height: 1; }
+  .wb-cal-legend {
+    display: flex; justify-content: space-between;
+    font-size: 10.5px; color: var(--muted); margin-top: 12px; padding: 0 2px;
+  }
+
+  .wb-weeks-wrap {
+    background: var(--glass); border: 1px solid var(--border); border-radius: 22px;
+    padding: 22px; backdrop-filter: blur(20px);
+    animation: fadeUp 0.5s 0.18s var(--ease-slow) both;
+  }
+  .wb-weeks { display: flex; gap: 10px; align-items: flex-end; height: 120px; margin-top: 16px; }
+  .wb-week { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; }
+  .wb-week-label { font-size: 9.5px; color: var(--muted2); text-align: center; flex-shrink: 0; }
+  .wb-week-bar-wrap {
+    flex: 1; width: 100%; display: flex; align-items: flex-end;
+    background: rgba(255,255,255,0.03); border-radius: 6px; overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .wb-week-bar { width: 100%; border-radius: 5px; transition: height 1s var(--ease-slow); }
+  .wb-week-val { font-size: 11px; color: var(--cream); font-weight: 400; flex-shrink: 0; }
+  .wb-week-logged { font-size: 9px; color: var(--muted); flex-shrink: 0; }
+
   /* ── SESSION SUMMARY ITEMS in memory view ── */
   .session-summary-item {
     padding: 14px 18px; border-radius: 16px; margin-bottom: 10px;
@@ -1515,6 +1591,14 @@ export const globalCss = `
     .today-mission-text { font-size: 15.5px; }
 
     .dashboard { padding: 16px 16px calc(80px + env(safe-area-inset-bottom)); gap: 14px; }
+
+    .wb-cal-grid { grid-template-columns: repeat(6, 1fr); gap: 4px; }
+    .wb-cal-cell { border-radius: 6px; }
+    .wb-cal-day { font-size: 7px; }
+    .wb-cal-emoji { font-size: 10px; }
+    .wb-weeks { height: 90px; gap: 6px; }
+    .wb-week-label { font-size: 8px; }
+    .wb-streak-val { font-size: 22px; }
     .dash-header { flex-direction: column; gap: 20px; align-items: flex-start; padding: 18px 20px; }
     .dash-ring-wrap { flex-direction: row; gap: 14px; align-items: center; width: 100%; }
     .dash-ring-label { text-align: left; }

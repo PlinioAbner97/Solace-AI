@@ -23,6 +23,8 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const [todayMood, setTodayMood] = useState(null);
   const [moodStreak, setMoodStreak] = useState(0);
   const [moodHistory, setMoodHistory] = useState([]);
+  const [moodCalendar, setMoodCalendar] = useState(null);
+  const [moodCalLoading, setMoodCalLoading] = useState(false);
   const [shareCard, setShareCard] = useState(false);
   const canvasRef = useRef(null);
   const [mission, setMission] = useState(null);
@@ -80,6 +82,16 @@ export default function AppShell({ user, companion, memory: initMemory, messages
       .catch(e => console.warn('Insight fetch failed:', e.message))
       .finally(() => setInsightLoading(false));
   }, [view, companion?.name]);
+
+  // Fetch mood calendar when wellbeing view opens
+  useEffect(() => {
+    if (view !== 'wellbeing' || moodCalendar) return;
+    setMoodCalLoading(true);
+    api.getMoodHistory(lang)
+      .then(data => setMoodCalendar(data))
+      .catch(e => console.warn('Mood history failed:', e.message))
+      .finally(() => setMoodCalLoading(false));
+  }, [view]);
 
   // Reset insight when companion changes so it reloads fresh
   useEffect(() => { setInsight(null); }, [companion?.name]);
@@ -558,6 +570,9 @@ export default function AppShell({ user, companion, memory: initMemory, messages
             <div className="sb-section">{t('sb_you')}</div>
             <button className={`sb-item${view === 'profile' ? ' active' : ''}`} onClick={() => changeView('profile')}>
               <span className="sb-icon">🌱</span> {t('sb_yourProfile')}
+            </button>
+            <button className={`sb-item${view === 'wellbeing' ? ' active' : ''}`} onClick={() => changeView('wellbeing')}>
+              <span className="sb-icon">💜</span> {lang === 'es' ? 'Bienestar' : 'Wellbeing'}
             </button>
 
             <div className="sb-stats">
@@ -1124,6 +1139,163 @@ export default function AppShell({ user, companion, memory: initMemory, messages
               </div>
             </div>
           )}
+
+          {/* ── WELLBEING ── */}
+          {view === 'wellbeing' && (() => {
+            const SCORE_COLOR = (s) => {
+              if (!s) return 'var(--border)';
+              if (s <= 1.5) return 'rgba(217,154,154,0.7)';
+              if (s <= 2.5) return 'rgba(217,185,154,0.65)';
+              if (s <= 3.5) return 'rgba(200,200,180,0.55)';
+              if (s <= 4.2) return 'rgba(154,200,180,0.7)';
+              return 'rgba(143,208,160,0.8)';
+            };
+            const SCORE_EMOJI = (s) => {
+              if (!s) return null;
+              if (s <= 1.5) return '😔';
+              if (s <= 2.5) return '😕';
+              if (s <= 3.5) return '😐';
+              if (s <= 4.2) return '🙂';
+              return '😊';
+            };
+
+            return (
+              <div className="inner-view wellbeing-view">
+                <div className="view-title">
+                  {lang === 'es' ? <>Tu <em>Bienestar</em></> : <>Your <em>Wellbeing</em></>}
+                </div>
+                <p className="view-sub">
+                  {lang === 'es'
+                    ? 'Tu historial emocional de los últimos 30 días.'
+                    : 'Your emotional history over the last 30 days.'}
+                </p>
+
+                {/* Log today prompt if not logged */}
+                {!todayMood && (
+                  <button className="wb-log-prompt" onClick={() => setMoodModal(true)}>
+                    <span>🌊</span>
+                    <div>
+                      <div className="wb-log-title">{lang === 'es' ? '¿Cómo estás hoy?' : 'How are you today?'}</div>
+                      <div className="wb-log-sub">{lang === 'es' ? 'Toca para registrar tu ánimo' : 'Tap to log your mood'}</div>
+                    </div>
+                    <span className="wb-log-arrow">→</span>
+                  </button>
+                )}
+
+                {/* Streak + today */}
+                <div className="wb-streak-row">
+                  <div className="wb-streak-card">
+                    <div className="wb-streak-val">{moodStreak > 0 ? moodStreak : 0}</div>
+                    <div className="wb-streak-lbl">🔥 {lang === 'es' ? 'días seguidos' : 'day streak'}</div>
+                  </div>
+                  <div className="wb-streak-card">
+                    <div className="wb-streak-val">{todayMood ? SCORE_EMOJI(todayMood.score) : '—'}</div>
+                    <div className="wb-streak-lbl">{lang === 'es' ? 'hoy' : 'today'}</div>
+                  </div>
+                  <div className="wb-streak-card">
+                    <div className="wb-streak-val">
+                      {moodCalendar?.days?.filter(d => d.score !== null).length || 0}
+                    </div>
+                    <div className="wb-streak-lbl">{lang === 'es' ? 'días registrados' : 'days logged'}</div>
+                  </div>
+                </div>
+
+                {/* AI monthly summary */}
+                {moodCalLoading && (
+                  <div className="insight-loading">
+                    <div className="insight-loading-dots">
+                      <div className="t-dot"/><div className="t-dot"/><div className="t-dot"/>
+                    </div>
+                    <span>{lang === 'es' ? 'Analizando tu mes…' : 'Analyzing your month…'}</span>
+                  </div>
+                )}
+                {moodCalendar?.monthlySummary && !moodCalLoading && (
+                  <div className="wb-summary-card">
+                    <div className="wb-summary-icon">✦</div>
+                    <div>
+                      <div className="wb-summary-label">{lang === 'es' ? 'Tu mes en resumen' : 'Your month in summary'}</div>
+                      <div className="wb-summary-text">{moodCalendar.monthlySummary}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 30-day calendar grid */}
+                {moodCalendar?.days?.length > 0 && (
+                  <div className="wb-cal-wrap">
+                    <div className="wb-cal-title">
+                      {lang === 'es' ? '📅 Últimos 30 días' : '📅 Last 30 days'}
+                    </div>
+                    <div className="wb-cal-grid">
+                      {moodCalendar.days.map((d, i) => (
+                        <div key={i} className="wb-cal-cell"
+                          style={{ background: d.score ? SCORE_COLOR(d.score) : 'var(--glass)' }}
+                          title={d.score ? `${d.date}: ${d.mood} (${d.score}/5)` : d.date}>
+                          <span className="wb-cal-day">{d.day}</span>
+                          {d.score && <span className="wb-cal-emoji">{SCORE_EMOJI(d.score)}</span>}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="wb-cal-legend">
+                      <span>😔 {lang === 'es' ? 'Difícil' : 'Rough'}</span>
+                      <span>😐 {lang === 'es' ? 'Neutro' : 'Okay'}</span>
+                      <span>😊 {lang === 'es' ? 'Bien' : 'Great'}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Weekly averages */}
+                {moodCalendar?.weeklyAvgs?.some(w => w.avg) && (
+                  <div className="wb-weeks-wrap">
+                    <div className="wb-cal-title">
+                      {lang === 'es' ? '📊 Promedio por semana' : '📊 Weekly average'}
+                    </div>
+                    <div className="wb-weeks">
+                      {moodCalendar.weeklyAvgs.map((w, i) => (
+                        <div key={i} className="wb-week">
+                          <div className="wb-week-label">
+                            {w.weekStart
+                              ? new Date(w.weekStart + 'T12:00:00').toLocaleDateString(
+                                  lang === 'es' ? 'es-ES' : 'en-US',
+                                  { month:'short', day:'numeric' })
+                              : `W${i+1}`}
+                          </div>
+                          <div className="wb-week-bar-wrap">
+                            <div className="wb-week-bar"
+                              style={{
+                                height: w.avg ? `${(w.avg/5)*100}%` : '4px',
+                                background: w.avg ? SCORE_COLOR(w.avg) : 'var(--border)',
+                                minHeight: 4,
+                              }}
+                            />
+                          </div>
+                          <div className="wb-week-val">{w.avg ? w.avg.toFixed(1) : '—'}</div>
+                          <div className="wb-week-logged">{w.logged}d</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {!moodCalLoading && (!moodCalendar?.days?.length || !moodCalendar?.days?.some(d => d.score)) && (
+                  <div className="empty-box">
+                    <div className="empty-icon">🌱</div>
+                    <div className="empty-title">
+                      {lang === 'es' ? 'Tu historial emocional está comenzando' : 'Your emotional history is just starting'}
+                    </div>
+                    <div className="empty-hint">
+                      {lang === 'es'
+                        ? 'Registra tu ánimo cada día y verás patrones aquí'
+                        : 'Log your mood each day and patterns will appear here'}
+                    </div>
+                    <button className="insight-reply-btn" style={{marginTop:20}} onClick={() => setMoodModal(true)}>
+                      {lang === 'es' ? 'Registrar ánimo de hoy →' : 'Log today\'s mood →'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
         </div>
       </div>

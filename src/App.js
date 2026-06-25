@@ -7,6 +7,7 @@ import Home from './pages/Home';
 import Auth from './pages/Auth';
 import PickCompanion from './pages/PickCompanion';
 import AppShell from './pages/AppShell';
+import Onboarding from './pages/Onboarding';
 
 export default function App() {
   const [status, setStatus] = useState('loading'); // loading | guest | auth
@@ -14,6 +15,7 @@ export default function App() {
   const [companion, setCompanion] = useState(null);
   const [memory, setMemory] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [profileForm, setProfileForm] = useState({});
 
   useEffect(() => {
@@ -89,6 +91,24 @@ export default function App() {
     } catch (e) {
       console.warn('Failed to load companion data:', e.message);
     }
+    // Show onboarding only if this user+companion pair hasn't done it yet
+    const onbKey = `solace_onb_${comp.name}`;
+    if (!localStorage.getItem(onbKey)) {
+      setShowOnboarding(true);
+    }
+  };
+
+  const handleOnboardingComplete = async () => {
+    // Mark this companion as onboarded for this user
+    if (companion?.name) {
+      localStorage.setItem(`solace_onb_${companion.name}`, '1');
+    }
+    setShowOnboarding(false);
+    // Reload memory to pick up anything saved during onboarding
+    try {
+      const mem = await api.getMemory(companion?.name);
+      setMemory(mem);
+    } catch {}
   };
 
   const handleSignOut = () => {
@@ -135,7 +155,13 @@ export default function App() {
           ? <Navigate to="/auth" replace />
           : !companion
             ? <Navigate to="/pick-companion" replace />
-            : <AppShell
+            : showOnboarding
+              ? <Onboarding
+                  user={user}
+                  companion={companion}
+                  onComplete={handleOnboardingComplete}
+                />
+              : <AppShell
                 user={user}
                 companion={companion}
                 memory={memory}

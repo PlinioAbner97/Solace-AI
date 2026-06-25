@@ -396,9 +396,25 @@ app.post('/api/extract-memory', auth, async (req, res) => {
   const { userText, existingFacts } = req.body;
   if (!GROQ_KEY) return res.json({ newFacts:[], mood:null, milestone:null });
   try {
-    const sys = `Extract personal facts from a user message. Existing: ${JSON.stringify(existingFacts||[])}
-Return ONLY valid JSON: {"newFacts":["up to 3 NEW facts"],"mood":"one word or null","milestone":"string or null"}`;
-    const raw    = await groqChat(EXTRACT_MODELS, [{ role:'user', content:`User said: "${userText}"` }], sys, 200);
+    const sys = `You are a memory extraction system. Analyze the user message and extract:
+
+1. newFacts: NEW personal facts not already known. Max 3. Examples: "has a dog named Max", "works as a teacher", "lives in Miami", "is 28 years old". Only truly new information. Existing known facts: ${JSON.stringify(existingFacts||[])}
+
+2. mood: Single word describing the user's emotional state RIGHT NOW. Examples: "anxious", "excited", "tired", "hopeful", "sad", "proud", "frustrated", "content". Null if no clear emotion.
+
+3. milestone: A meaningful life event or achievement the user mentions. This is IMPORTANT — be generous. Count these as milestones:
+- Starting or finishing something (job, project, book, relationship, course)
+- A personal achievement (ran a 5k, got a promotion, moved cities, had a baby)
+- A difficult moment they're processing (breakup, loss, health issue, tough decision)
+- A first time doing something significant
+- A goal reached or failed
+Examples: "Got the promotion they've been working toward", "Finished writing their novel", "Started therapy for the first time", "Moved to a new city alone"
+Null ONLY if the message is completely mundane (small talk, simple questions).
+
+Return ONLY valid JSON, no other text:
+{"newFacts":["fact1"],"mood":"word or null","milestone":"sentence or null"}`;
+
+    const raw    = await groqChat(EXTRACT_MODELS, [{ role:'user', content:`User message: "${userText}"` }], sys, 250);
     const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
     res.json(parsed);
   } catch {
@@ -688,6 +704,40 @@ Reply with ONLY the summary, no quotes or extra text.`;
   } catch (e) {
     console.error('Session summary error:', e.message);
     res.json({ ok: true, skipped: true }); // non-fatal — never block the user
+  }
+});
+
+// ── JOURNAL ENTRY ─────────────────────────────────────────────────────────────
+// POST /api/journal/add — append a milestone entry to the timeline
+// Used automatically for: streak milestones, level-ups, mission streaks, etc.
+app.post('/api/journal/add', auth, async (req, res) => {
+  try {
+    const { companion, content, detail, icon } = req.body;
+    const comp = companion || 'default';
+    const row = await DB.get('SELECT timeline FROM user_memory WHERE user_id=? AND companion=?', req.user.id, comp);
+    const timeline = JSON.parse(row?.timeline || '[]');
+
+    const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const entry = { date: dateStr, content, detail: detail || null, icon: icon || '✦', auto: true };
+
+    // Avoid duplicates — don't add the same content within 7 days
+    const sevenDaysAgo = Date.now() - 7 * 86400000;
+    const isDuplicate = timeline.some(e =>
+      e.content === content &&
+      new Date(e.date).getTime() > sevenDaysAgo
+    );
+    if (isDuplicate) return res.json({ ok: true, skipped: true });
+
+    const updated = [...timeline, entry].slice(-60);
+    await DB.run(
+      `INSERT INTO user_memory (user_id,companion,timeline,updated_at) VALUES (?,?,?,?)
+       ON CONFLICT(user_id,companion) DO UPDATE SET timeline=excluded.timeline, updated_at=excluded.updated_at`,
+      req.user.id, comp, JSON.stringify(updated), new Date().toISOString()
+    );
+    res.json({ ok: true, entry });
+  } catch (e) {
+    console.error('Journal add error:', e.message);
+    res.json({ ok: false });
   }
 });
 

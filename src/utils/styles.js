@@ -1209,10 +1209,17 @@ export const globalCss = `
     font-style: italic;
   }
 
-  .tl-wrap { position:relative; padding-left:32px; max-width:680px; }
+  .tl-wrap { position:relative; padding-left:38px; max-width:680px; }
   .tl-wrap::before { content:''; position:absolute; left:0; top:8px; bottom:0; width:1px; background: linear-gradient(180deg, var(--border2), var(--border), transparent); }
   .tl-item { position:relative; margin-bottom:32px; animation:fadeUp 0.6s var(--ease-slow); }
-  .tl-dot { position:absolute; left:-36px; top:6px; width:8px; height:8px; border-radius:50%; background: var(--muted2); box-shadow: 0 0 10px rgba(255,255,255,0.2); }
+  .tl-dot {
+    position: absolute; left: -38px; top: 2px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--glass); border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: var(--muted2);
+    box-shadow: 0 0 8px rgba(232,199,154,0.15);
+  }
   .tl-date { font-size:10.5px; letter-spacing:.12em; color:var(--muted2); text-transform:uppercase; margin-bottom:5px; }
   .tl-content { font-family:'Cormorant Garamond',serif; font-size:17px; font-weight:300; line-height:1.6; }
   .tl-detail { font-size:12.5px; color:var(--muted2); margin-top:3px; }

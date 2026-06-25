@@ -140,10 +140,41 @@ export default function AppShell({ user, companion, memory: initMemory, messages
 
       extractAndSaveMemory(userMsg.content);
 
+      // Log first message with this companion to journal
+      if (messages.length === 1) { // was empty before this message
+        api.addJournalEntry(
+          companion?.name,
+          lang === 'es'
+            ? `Primera conversación con ${compName}`
+            : `First conversation with ${compName}`,
+          lang === 'es'
+            ? `El comienzo de una nueva amistad`
+            : `The beginning of a new friendship`,
+          companion?.emoji || '✦'
+        ).then(({ ok, entry }) => {
+          if (ok && entry) setMemory(prev => ({
+            ...prev,
+            timeline: [...(prev.timeline || []), entry].slice(-60)
+          }));
+        }).catch(() => {});
+      }
+
       // Mark today's mission complete on first message sent
       if (mission && !missionDone) {
         setMissionDone(true);
         api.completeMission(companion?.name).catch(() => {});
+        // Log mission completion to journal
+        api.addJournalEntry(
+          companion?.name,
+          lang === 'es' ? `Completó la misión del día con ${companion?.name}` : `Completed today's mission with ${companion?.name}`,
+          mission,
+          '◎'
+        ).then(({ ok, entry }) => {
+          if (ok && entry) setMemory(prev => ({
+            ...prev,
+            timeline: [...(prev.timeline || []), entry].slice(-60)
+          }));
+        }).catch(() => {});
       }
     } catch (e) {
       console.error('Chat error:', e.message);
@@ -227,6 +258,25 @@ export default function AppShell({ user, companion, memory: initMemory, messages
       const { streak, history } = await api.getMoodStreak();
       setMoodStreak(streak);
       setMoodHistory(history || []);
+
+      // Log streak milestones to journal
+      const milestones = { 3: '3-day', 7: '1-week', 14: '2-week', 30: '1-month', 60: '2-month', 100: '100-day' };
+      if (milestones[streak]) {
+        const label = milestones[streak];
+        api.addJournalEntry(
+          companion?.name,
+          lang === 'es'
+            ? `Alcanzó una racha de ${label === '3-day' ? '3 días' : label === '1-week' ? '1 semana' : label === '2-week' ? '2 semanas' : label === '1-month' ? '1 mes' : label === '2-month' ? '2 meses' : '100 días'} registrando su ánimo`
+            : `Reached a ${label} mood logging streak`,
+          lang === 'es' ? `${streak} días seguidos cuidando su bienestar emocional` : `${streak} consecutive days of emotional self-care`,
+          '🔥'
+        ).then(({ ok, entry }) => {
+          if (ok && entry) setMemory(prev => ({
+            ...prev,
+            timeline: [...(prev.timeline || []), entry].slice(-60)
+          }));
+        }).catch(() => {});
+      }
     } catch (e) {
       console.warn('Mood log failed:', e.message);
     }
@@ -1030,7 +1080,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                 <div className="tl-wrap">
                   {[...memory.timeline].reverse().map((entry, i) => (
                     <div key={i} className="tl-item">
-                      <div className="tl-dot" />
+                      <div className="tl-dot">{entry.icon || ''}</div>
                       <div className="tl-date">{entry.date}</div>
                       <div className="tl-content">{entry.content}</div>
                       {entry.detail && <div className="tl-detail">{entry.detail}</div>}

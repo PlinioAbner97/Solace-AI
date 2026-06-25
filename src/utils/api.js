@@ -57,6 +57,8 @@ export const api = {
     call(`/mission?companion=${encodeURIComponent(companion||'default')}&companionName=${encodeURIComponent(companionName||'')}&lang=${lang||'en'}`),
   completeMission:  (companion) =>
     call('/mission/complete', 'POST', { companion: companion || 'default' }),
+  addJournalEntry:  (companion, content, detail, icon) =>
+    call('/journal/add', 'POST', { companion, content, detail, icon }),
 
   testAI: () => call('/test-ai'),
 };

@@ -23,6 +23,8 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const [todayMood, setTodayMood] = useState(null);
   const [moodStreak, setMoodStreak] = useState(0);
   const [moodHistory, setMoodHistory] = useState([]);
+  const [shareCard, setShareCard] = useState(false);
+  const canvasRef = useRef(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const navigate = useNavigate();
@@ -211,11 +213,214 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   };
 
   // Wrap setView so leaving the chat triggers a background session summary
+  // ── GENERATE RELATIONSHIP CARD ON CANVAS ──────────────────────────────────
+  const generateCard = (canvas) => {
+    if (!canvas) return;
+    const W = 900, H = 520;
+    canvas.width  = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // Background — deep espresso gradient
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0,   '#0e0b08');
+    bg.addColorStop(0.5, '#120e0a');
+    bg.addColorStop(1,   '#0a0908');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Warm ambient glow top-left
+    const glow1 = ctx.createRadialGradient(160, 140, 0, 160, 140, 360);
+    glow1.addColorStop(0,   'rgba(232,199,154,0.11)');
+    glow1.addColorStop(1,   'rgba(232,199,154,0)');
+    ctx.fillStyle = glow1;
+    ctx.fillRect(0, 0, W, H);
+
+    // Glow bottom-right
+    const glow2 = ctx.createRadialGradient(W - 120, H - 80, 0, W - 120, H - 80, 280);
+    glow2.addColorStop(0,   'rgba(200,180,232,0.07)');
+    glow2.addColorStop(1,   'rgba(200,180,232,0)');
+    ctx.fillStyle = glow2;
+    ctx.fillRect(0, 0, W, H);
+
+    // Outer border
+    ctx.strokeStyle = 'rgba(255,240,220,0.12)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, 1, 1, W-2, H-2, 28);
+    ctx.stroke();
+
+    // Inner card panel (left side)
+    ctx.fillStyle = 'rgba(255,248,238,0.04)';
+    roundRect(ctx, 32, 32, 340, H-64, 20);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255,240,220,0.1)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, 32, 32, 340, H-64, 20);
+    ctx.stroke();
+
+    // ── Companion emoji (large) ──
+    ctx.font = '80px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(companion?.emoji || '✦', 202, 190);
+
+    // Breathing ring around emoji
+    ctx.strokeStyle = 'rgba(232,199,154,0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(202, 160, 68, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Companion name
+    ctx.fillStyle = '#f5efe4';
+    ctx.font = '500 32px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(companion?.name || 'Solace', 202, 238);
+
+    // Trait
+    ctx.fillStyle = 'rgba(232,199,154,0.65)';
+    ctx.font = '300 14px sans-serif';
+    ctx.fillText(companion?.trait || '', 202, 264);
+
+    // "Always here" line
+    ctx.fillStyle = 'rgba(143,208,160,0.8)';
+    ctx.font = '300 12px sans-serif';
+    ctx.fillText('● Always here', 202, 290);
+
+    // ── Right panel: stats + facts ──
+    const rx = 408, ry = 48;
+
+    // User name
+    ctx.fillStyle = '#f5efe4';
+    ctx.font = '300 13px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(lang === 'es' ? 'La historia de' : 'The story of', rx, ry + 18);
+    ctx.font = '400 34px serif';
+    ctx.fillText(user?.name || 'You', rx, ry + 58);
+
+    // Thin separator line
+    ctx.strokeStyle = 'rgba(255,240,220,0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(rx, ry + 72);
+    ctx.lineTo(W - 40, ry + 72);
+    ctx.stroke();
+
+    // Stats row
+    const daysLabel = user?.createdAt
+      ? Math.max(1, Math.round((Date.now() - new Date(user.createdAt).getTime()) / 86400000))
+      : 1;
+    const relScore = Math.min(100,
+      Math.min(40, (memory?.facts?.length||0)*2) +
+      Math.min(20, (memory?.sessionSummaries?.length||0)*4) +
+      Math.min(20, moodStreak*2) +
+      Math.min(20, Math.floor(messages.length/5))
+    );
+    const relLevel = relScore < 20 ? (lang==='es'?'Apenas comenzando':'Just Getting Started')
+      : relScore < 40 ? (lang==='es'?'Construyendo conexión':'Building Connection')
+      : relScore < 60 ? (lang==='es'?'Familiarizándonos':'Getting Close')
+      : relScore < 80 ? (lang==='es'?'Amigos de verdad':'Real Friends')
+      : (lang==='es'?'Vínculo profundo':'Deep Bond');
+
+    const stats = [
+      { val: `${daysLabel}`, lbl: lang==='es'?'días':'days' },
+      { val: `${memory?.facts?.length||0}`, lbl: lang==='es'?'datos':'known' },
+      { val: `${relScore}`, lbl: '/ 100' },
+      { val: moodStreak > 0 ? `${moodStreak}🔥` : '—', lbl: lang==='es'?'racha':'streak' },
+    ];
+    stats.forEach((s, i) => {
+      const sx = rx + i * 116;
+      ctx.fillStyle = '#f5efe4';
+      ctx.font = '400 26px serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(s.val, sx, ry + 110);
+      ctx.fillStyle = 'rgba(168,160,150,0.8)';
+      ctx.font = '300 11px sans-serif';
+      ctx.fillText(s.lbl, sx, ry + 128);
+    });
+
+    // Relationship level badge
+    ctx.fillStyle = 'rgba(232,199,154,0.12)';
+    roundRect(ctx, rx, ry + 140, 200, 28, 14);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(232,199,154,0.3)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, rx, ry + 140, 200, 28, 14);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(232,199,154,0.9)';
+    ctx.font = '400 12px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(relLevel, rx + 14, ry + 159);
+
+    // Facts
+    const facts = (memory?.facts || []).slice(0, 4);
+    if (facts.length) {
+      ctx.fillStyle = 'rgba(168,160,150,0.7)';
+      ctx.font = '300 11px sans-serif';
+      ctx.fillText(lang==='es'?'Lo que sabe de ti:':'Things they know about you:', rx, ry + 200);
+
+      facts.forEach((f, i) => {
+        const fy = ry + 224 + i * 36;
+        // pill background
+        const tw = Math.min(ctx.measureText(`💡 ${f}`).width + 24, W - rx - 50);
+        ctx.fillStyle = 'rgba(255,248,238,0.05)';
+        roundRect(ctx, rx, fy - 16, tw, 28, 14);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,240,220,0.1)';
+        ctx.lineWidth = 1;
+        roundRect(ctx, rx, fy - 16, tw, 28, 14);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(245,239,228,0.85)';
+        ctx.font = '300 12px sans-serif';
+        ctx.textAlign = 'left';
+        const label = `💡 ${f.length > 42 ? f.slice(0,42)+'…' : f}`;
+        ctx.fillText(label, rx + 12, fy);
+      });
+    }
+
+    // Branding watermark bottom
+    ctx.fillStyle = 'rgba(168,160,150,0.4)';
+    ctx.font = '300 13px serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('Solace AI', W - 40, H - 32);
+    ctx.font = '300 11px sans-serif';
+    ctx.fillStyle = 'rgba(168,160,150,0.25)';
+    ctx.fillText('solace-ai-1-atkq.onrender.com', W - 40, H - 16);
+  };
+
+  // helper: rounded rect path
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  const downloadCard = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = `solace-${companion?.name?.toLowerCase() || 'card'}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+
+  const openShareCard = () => {
+    setShareCard(true);
+    setTimeout(() => generateCard(canvasRef.current), 100);
+  };
+
   const changeView = (newView) => {
     if (view === 'chat' && newView !== 'chat' && messages.length >= 4) {
-      // Fire-and-forget — never blocks the user, runs silently in background
       api.summarizeSession(companion?.name, companion?.name, lang, messages)
-        .catch(() => {}); // truly silent
+        .catch(() => {});
     }
     setView(newView);
   };
@@ -488,6 +693,9 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                       <text x="56" y="68" textAnchor="middle" fill="var(--muted2)" fontSize="8.5" fontFamily="Inter, sans-serif" letterSpacing="0.05em">/ 100</text>
                     </svg>
                     <div className="dash-ring-label">{relLevel}</div>
+                    <button className="dash-share-btn" onClick={openShareCard}>
+                      {lang === 'es' ? '✦ Compartir' : '✦ Share'}
+                    </button>
                   </div>
                 </div>
 
@@ -690,6 +898,34 @@ export default function AppShell({ user, companion, memory: initMemory, messages
 
         </div>
       </div>
+
+      {/* ── SHARE RELATIONSHIP CARD MODAL ── */}
+      {shareCard && (
+        <>
+          <div className="mood-overlay" onClick={() => setShareCard(false)} />
+          <div className="share-card-modal">
+            <div className="share-card-header">
+              <div className="share-card-title">
+                {lang === 'es' ? '✦ Tu tarjeta de relación' : '✦ Your relationship card'}
+              </div>
+              <button className="share-card-close" onClick={() => setShareCard(false)}>×</button>
+            </div>
+            <div className="share-card-canvas-wrap">
+              <canvas ref={canvasRef} className="share-card-canvas" />
+            </div>
+            <div className="share-card-actions">
+              <button className="share-card-download" onClick={downloadCard}>
+                ↓ {lang === 'es' ? 'Descargar imagen' : 'Download image'}
+              </button>
+              <p className="share-card-hint">
+                {lang === 'es'
+                  ? 'Guarda y comparte en tus redes — muéstrale al mundo tu conexión con ' + compName
+                  : 'Save and share on social — show the world your connection with ' + compName}
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── DAILY MOOD CHECK-IN MODAL ── */}
       {moodModal && (

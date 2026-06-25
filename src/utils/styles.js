@@ -657,6 +657,70 @@ export const globalCss = `
     font-family: 'Inter', sans-serif; font-size: 13.5px; cursor: pointer;
   }
 
+  /* ── SHARE RELATIONSHIP CARD MODAL ── */
+  .share-card-modal {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    z-index: 96; width: min(960px, 95vw);
+    background: rgba(14,12,10,0.92);
+    backdrop-filter: blur(40px) saturate(160%);
+    -webkit-backdrop-filter: blur(40px) saturate(160%);
+    border: 1px solid var(--border2); border-radius: 28px;
+    padding: 28px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset, 0 40px 100px rgba(0,0,0,0.7);
+    animation: scaleIn 0.45s var(--ease-slow);
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: translate(-50%,-50%) scale(0.92); }
+    to   { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  }
+  .share-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .share-card-title {
+    font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 400;
+    color: var(--cream);
+  }
+  .share-card-close {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--glass);
+    color: var(--muted2); font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .3s var(--ease);
+  }
+  .share-card-close:hover { color: var(--cream); border-color: var(--border2); }
+  .share-card-canvas-wrap {
+    border-radius: 18px; overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+  }
+  .share-card-canvas { display: block; width: 100%; height: auto; }
+  .share-card-actions { margin-top: 20px; text-align: center; }
+  .share-card-download {
+    padding: 12px 32px; border-radius: 100px; border: none; cursor: pointer;
+    background: var(--cream); color: #0a0a0c;
+    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
+    transition: all .4s var(--ease);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.4) inset, 0 8px 20px rgba(0,0,0,0.3);
+  }
+  .share-card-download:hover { transform: translateY(-2px); }
+  .share-card-hint {
+    font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.5;
+  }
+
+  /* dashboard share button */
+  .dash-share-btn {
+    padding: 8px 18px; border-radius: 100px; border: 1px solid var(--border);
+    background: var(--glass); color: var(--warm-dim);
+    font-family: 'Inter', sans-serif; font-size: 12px; cursor: pointer;
+    transition: all .4s var(--ease); backdrop-filter: blur(12px);
+    margin-top: 6px;
+  }
+  .dash-share-btn:hover {
+    border-color: var(--warm-dim); background: rgba(232,199,154,0.1);
+    color: var(--warm);
+  }
+
   /* ── DAILY MOOD CHECK-IN MODAL ── */
   .mood-overlay {
     position: fixed; inset: 0; z-index: 95;
@@ -1185,6 +1249,12 @@ export const globalCss = `
     .view-title { font-size: 26px; }
     .view-sub { font-size: 13px; margin-bottom: 24px; }
 
+    .share-card-modal {
+      left: 0; top: auto; bottom: 0; transform: none;
+      width: 100%; border-radius: 28px 28px 0 0;
+      animation: sheetUp 0.45s var(--ease-slow);
+      max-height: 90vh; overflow-y: auto;
+    }
     .insight-card { padding: 20px; margin-bottom: 20px; border-radius: 18px; }
     .insight-q-text { font-size: 16px; }
 

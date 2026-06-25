@@ -6,7 +6,7 @@ import { buildSystemPrompt, todayStr, nowTime, initials } from '../utils/compani
 import { useLanguage } from '../utils/LanguageContext';
 
 export default function AppShell({ user, companion, memory: initMemory, messages: initMessages, onSignOut, onChangeCompanion }) {
-  const [view, setView] = useState('chat');
+  const [view, setView] = useState('today');
   const [mode, setMode] = useState('friend');
   const [messages, setMessages] = useState(initMessages || []);
   const [memory, setMemory] = useState(initMemory || { profile: {}, facts: [], moodHistory: [], timeline: [] });
@@ -488,6 +488,10 @@ export default function AppShell({ user, companion, memory: initMemory, messages
           )}
 
           <div className="sb-nav">
+            <button className={`sb-item${view === 'today' ? ' active' : ''}`} onClick={() => changeView('today')}>
+              <span className="sb-icon">🌅</span> {lang === 'es' ? 'Hoy' : 'Today'}
+            </button>
+
             <div className="sb-section">{t('sb_companion')}</div>
             <button className={`sb-item${view === 'chat' ? ' active' : ''}`} onClick={() => changeView('chat')}>
               <span className="sb-icon">✦</span> {t('sb_chatWith')} {compName}
@@ -561,6 +565,126 @@ export default function AppShell({ user, companion, memory: initMemory, messages
 
         {/* MAIN */}
         <div className="main-area">
+
+          {/* ── TODAY ── */}
+          {view === 'today' && (() => {
+            const hour = new Date().getHours();
+            const greeting = lang === 'es'
+              ? (hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches')
+              : (hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening');
+            const daysLabel = user?.createdAt
+              ? Math.max(1, Math.round((Date.now() - new Date(user.createdAt).getTime()) / 86400000))
+              : 1;
+            const relScore = Math.min(100,
+              Math.min(40,(memory?.facts?.length||0)*2) +
+              Math.min(20,(memory?.sessionSummaries?.length||0)*4) +
+              Math.min(20,moodStreak*2) +
+              Math.min(20,Math.floor(messages.length/5))
+            );
+            return (
+              <div className="today-view">
+                <div className="today-header">
+                  <div className="today-greeting">{greeting},</div>
+                  <div className="today-name">{user?.name}</div>
+                  <div className="today-date">
+                    {new Date().toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday:'long', month:'long', day:'numeric' })}
+                  </div>
+                </div>
+
+                <button className="today-comp-card" onClick={() => changeView('chat')}>
+                  <div className="today-comp-av">{companion?.emoji || '✦'}</div>
+                  <div className="today-comp-info">
+                    <div className="today-comp-name">{compName}</div>
+                    <div className="today-comp-status">
+                      <span className="today-comp-dot" />
+                      {lang === 'es' ? 'Siempre aquí para ti' : 'Always here for you'}
+                    </div>
+                    {checkinMsg && (
+                      <div className="today-comp-preview">
+                        "{checkinMsg.slice(0,90)}{checkinMsg.length > 90 ? '…' : ''}"
+                      </div>
+                    )}
+                  </div>
+                  <div className="today-comp-arrow">→</div>
+                </button>
+
+                <div className="today-stats">
+                  {[
+                    { val: daysLabel, lbl: lang==='es'?'días':'days' },
+                    { val: relScore,  lbl: lang==='es'?'conexión':'bond' },
+                    { val: moodStreak > 0 ? `${moodStreak}🔥` : '—', lbl: lang==='es'?'racha':'streak' },
+                    { val: todayMood ? todayMood.mood : '+', lbl: lang==='es'?'ánimo':'mood', onClick: () => !todayMood && setMoodModal(true) },
+                  ].map((s,i) => (
+                    <div key={i} className="today-stat" onClick={s.onClick} style={s.onClick ? {cursor:'pointer'} : {}}>
+                      <div className="today-stat-val">{s.val}</div>
+                      <div className="today-stat-lbl">{s.lbl}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {mission && (
+                  <button className={`today-mission${missionDone?' today-mission-done':''}`}
+                    onClick={() => changeView('chat')}>
+                    <div className="today-mission-top">
+                      <span className="today-mission-icon">{missionDone ? '✓' : '◎'}</span>
+                      <span className="today-mission-label">{lang==='es'?'Misión del día':"Today's mission"}</span>
+                      {missionDone
+                        ? <span className="today-mission-badge">{lang==='es'?'Completada':'Done'} 🔥</span>
+                        : <span className="today-mission-tap">{lang==='es'?'Toca para empezar →':'Tap to start →'}</span>
+                      }
+                    </div>
+                    <div className="today-mission-text">"{mission}"</div>
+                  </button>
+                )}
+
+                {moodHistory.length > 2 && (() => {
+                  const pts = moodHistory.slice(-7);
+                  const W = 200, H = 32;
+                  const path = pts.map((p,i) => {
+                    const x=(i/(pts.length-1))*W, y=H-((p.score/5)*H*0.8+H*0.1);
+                    return `${i===0?'M':'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+                  }).join(' ');
+                  return (
+                    <div className="today-mood-card" onClick={() => changeView('memory')} style={{cursor:'pointer'}}>
+                      <div className="today-mood-label">
+                        {lang==='es'?'🌊 Tu semana emocional':'🌊 Your emotional week'}
+                        <span className="today-mood-tap">{lang==='es'?' · Ver más →':' · See more →'}</span>
+                      </div>
+                      <svg width="100%" height="40" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{marginTop:8}}>
+                        <defs>
+                          <linearGradient id="tGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--warm)" stopOpacity="0.3"/>
+                            <stop offset="100%" stopColor="var(--warm)" stopOpacity="0"/>
+                          </linearGradient>
+                        </defs>
+                        <path d={`${path} L ${W} ${H} L 0 ${H} Z`} fill="url(#tGrad)"/>
+                        <path d={path} fill="none" stroke="var(--warm)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        {pts.map((p,i)=>{
+                          const x=(i/(pts.length-1))*W,y=H-((p.score/5)*H*0.8+H*0.1);
+                          return <circle key={i} cx={x} cy={y} r="2.5" fill="var(--warm)" opacity="0.85"/>;
+                        })}
+                      </svg>
+                      <div className="today-mood-emojis"><span>😔</span><span>😐</span><span>😊</span></div>
+                    </div>
+                  );
+                })()}
+
+                <div className="today-quicknav">
+                  {[
+                    { view:'chat',    icon:'✦', label:lang==='es'?'Chat':'Chat' },
+                    { view:'memory',  icon:'🧠', label:lang==='es'?'Memoria':'Memory' },
+                    { view:'journal', icon:'📖', label:lang==='es'?'Diario':'Journal' },
+                    { view:'profile', icon:'🌱', label:lang==='es'?'Perfil':'Profile' },
+                  ].map(n => (
+                    <button key={n.view} className="today-quicknav-btn" onClick={() => changeView(n.view)}>
+                      <span className="today-quicknav-icon">{n.icon}</span>
+                      <span className="today-quicknav-label">{n.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── CHAT ── */}
           {view === 'chat' && (

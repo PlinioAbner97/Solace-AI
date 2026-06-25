@@ -792,6 +792,118 @@ export const globalCss = `
     to { transform: translateY(0); }
   }
 
+  /* ── TODAY SCREEN ── */
+  .today-view {
+    padding: 36px 40px 40px; overflow-y: auto; height: 100%;
+    display: flex; flex-direction: column; gap: 16px; max-width: 680px;
+  }
+  .today-view::-webkit-scrollbar { width: 4px; }
+  .today-view::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .today-header { margin-bottom: 4px; animation: fadeUp 0.7s var(--ease-slow); }
+  .today-greeting { font-size: 13px; color: var(--muted2); letter-spacing: .04em; margin-bottom: 4px; }
+  .today-name {
+    font-family: 'Cormorant Garamond', serif; font-size: 38px; font-weight: 300;
+    line-height: 1.1; letter-spacing: -0.01em; color: var(--cream);
+  }
+  .today-date { font-size: 12px; color: var(--muted); margin-top: 6px; letter-spacing: .04em; }
+
+  /* Companion card — tappable, leads to chat */
+  .today-comp-card {
+    display: flex; align-items: center; gap: 16px; width: 100%;
+    background: var(--glass); border: 1px solid var(--border); border-radius: 22px;
+    padding: 18px 20px; cursor: pointer; text-align: left;
+    backdrop-filter: blur(24px);
+    transition: all .5s var(--ease);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset;
+    animation: fadeUp 0.7s 0.08s var(--ease-slow) both;
+  }
+  .today-comp-card:hover, .today-comp-card:active {
+    border-color: var(--border2); background: var(--glass-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.1) inset, 0 16px 36px rgba(0,0,0,0.25);
+  }
+  .today-comp-av {
+    font-size: 32px; flex-shrink: 0;
+    animation: breathe 5s ease-in-out infinite;
+  }
+  .today-comp-info { flex: 1; min-width: 0; }
+  .today-comp-name { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 400; }
+  .today-comp-status {
+    font-size: 11px; color: var(--green); display: flex; align-items: center; gap: 5px; margin-top: 2px;
+  }
+  .today-comp-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 6px var(--green);
+    animation: pulse 2.5s infinite; flex-shrink: 0;
+  }
+  .today-comp-preview {
+    font-size: 12.5px; color: var(--muted2); margin-top: 6px; font-style: italic;
+    line-height: 1.5; font-weight: 300;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .today-comp-arrow { font-size: 18px; color: var(--muted); flex-shrink: 0; }
+
+  /* Stats row */
+  .today-stats {
+    display: grid; grid-template-columns: repeat(4,1fr); gap: 10px;
+    animation: fadeUp 0.7s 0.14s var(--ease-slow) both;
+  }
+  .today-stat {
+    background: var(--glass); border: 1px solid var(--border); border-radius: 16px;
+    padding: 14px 8px; text-align: center; backdrop-filter: blur(16px);
+    transition: all .4s var(--ease);
+  }
+  .today-stat:hover { border-color: var(--border2); background: var(--glass-hover); }
+  .today-stat-val {
+    font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400;
+    color: var(--cream); line-height: 1;
+  }
+  .today-stat-lbl { font-size: 9.5px; color: var(--muted2); margin-top: 4px; letter-spacing: .04em; }
+
+  /* Mission card */
+  .today-mission {
+    width: 100%; text-align: left; cursor: pointer;
+    background: linear-gradient(135deg, rgba(143,208,160,0.1), rgba(100,200,180,0.06));
+    border: 1px solid rgba(143,208,160,0.22); border-radius: 20px; padding: 18px 20px;
+    transition: all .5s var(--ease);
+    animation: fadeUp 0.7s 0.2s var(--ease-slow) both;
+  }
+  .today-mission:hover { transform: translateY(-2px); border-color: rgba(143,208,160,0.35); }
+  .today-mission.today-mission-done { opacity: 0.75; }
+  .today-mission-top { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+  .today-mission-icon { font-size: 14px; color: var(--green); }
+  .today-mission-label { font-size: 10px; letter-spacing:.12em; text-transform:uppercase; color:rgba(143,208,160,0.7); flex:1; }
+  .today-mission-badge { font-size:11px; color:var(--green); background:rgba(143,208,160,0.12); border:1px solid rgba(143,208,160,0.2); padding:3px 10px; border-radius:100px; }
+  .today-mission-tap { font-size:11px; color:var(--muted2); }
+  .today-mission-text { font-family:'Cormorant Garamond',serif; font-size:17px; font-style:italic; font-weight:300; line-height:1.55; color:var(--cream); }
+
+  /* Mood card */
+  .today-mood-card {
+    background: var(--glass); border: 1px solid var(--border); border-radius: 18px;
+    padding: 16px 18px; backdrop-filter: blur(20px); transition: all .4s var(--ease);
+    animation: fadeUp 0.7s 0.26s var(--ease-slow) both;
+  }
+  .today-mood-card:hover { border-color: var(--border2); }
+  .today-mood-label { font-size: 12px; color: var(--cream); display: flex; align-items: center; }
+  .today-mood-tap { font-size: 11px; color: var(--muted2); margin-left: auto; }
+  .today-mood-emojis { display:flex; justify-content:space-between; font-size:13px; opacity:0.5; margin-top:3px; }
+
+  /* Quick nav */
+  .today-quicknav {
+    display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 4px;
+    animation: fadeUp 0.7s 0.32s var(--ease-slow) both;
+  }
+  .today-quicknav-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    padding: 14px 8px; border-radius: 16px; border: 1px solid var(--border);
+    background: var(--glass); backdrop-filter: blur(16px); cursor: pointer;
+    transition: all .4s var(--ease);
+  }
+  .today-quicknav-btn:hover { border-color: var(--border2); background: var(--glass-hover); transform: translateY(-2px); }
+  .today-quicknav-icon { font-size: 18px; }
+  .today-quicknav-label { font-size: 10px; color: var(--muted2); letter-spacing: .03em; }
+
   /* ── DAILY MISSION CARD ── */
   .mission-card {
     margin: 16px 28px 0;
@@ -1276,6 +1388,19 @@ export const globalCss = `
     .input-hint { display: none; }
 
     .inner-view { padding: 20px 16px calc(80px + env(safe-area-inset-bottom)); }
+
+    .today-view { padding: 24px 16px calc(80px + env(safe-area-inset-bottom)); gap: 13px; }
+    .today-name { font-size: 30px; }
+    .today-stats { gap: 8px; }
+    .today-stat { padding: 12px 6px; border-radius: 14px; }
+    .today-stat-val { font-size: 19px; }
+    .today-quicknav { gap: 8px; }
+    .today-quicknav-btn { padding: 12px 6px; border-radius: 14px; }
+    .today-comp-card { padding: 16px; border-radius: 18px; }
+    .today-comp-av { font-size: 26px; }
+    .today-comp-name { font-size: 18px; }
+    .today-mission { border-radius: 18px; padding: 16px; }
+    .today-mission-text { font-size: 15.5px; }
 
     .dashboard { padding: 16px 16px calc(80px + env(safe-area-inset-bottom)); gap: 14px; }
     .dash-header { flex-direction: column; gap: 20px; align-items: flex-start; padding: 18px 20px; }

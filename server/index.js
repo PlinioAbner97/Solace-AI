@@ -102,6 +102,13 @@ async function initDB() {
         await client.execute(`ALTER TABLE user_memory ADD COLUMN session_summaries TEXT DEFAULT '[]'`);
         console.log('✦ session_summaries added');
       }
+      const hasRecap = memCols.rows.some(r => r.name === 'recap_week_key');
+      if (!hasRecap) {
+        console.log('⚠ Adding recap columns...');
+        await client.execute(`ALTER TABLE user_memory ADD COLUMN recap_week_key TEXT`);
+        await client.execute(`ALTER TABLE user_memory ADD COLUMN recap_data TEXT`);
+        console.log('✦ recap columns added');
+      }
     } catch (migErr) {
       console.error('Migration check failed (non-fatal):', migErr.message);
     }
@@ -124,6 +131,7 @@ async function initDB() {
         mood_history TEXT DEFAULT '[]', timeline TEXT DEFAULT '[]', updated_at TEXT,
         last_checkin_date TEXT, checkin_message TEXT,
         session_summaries TEXT DEFAULT '[]',
+        recap_week_key TEXT, recap_data TEXT,
         PRIMARY KEY (user_id, companion));
       CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
@@ -909,6 +917,117 @@ Write as a caring friend who knows them. Be honest but encouraging. No lists. Ju
   } catch (e) {
     console.error('Mood history error:', e.message);
     res.json({ days:[], weeklyAvgs:[], monthlySummary:null });
+  }
+});
+
+// ── WEEKLY RECAP ─────────────────────────────────────────────────────────────
+// GET /api/recap — returns this week's personal recap card
+// Generated once per week, cached in user_memory as recap_data + recap_week_key
+app.get('/api/recap', auth, async (req, res) => {
+  try {
+    const companion     = req.query.companion     || 'default';
+    const companionName = req.query.companionName || 'your companion';
+    const lang          = req.query.lang === 'es' ? 'es' : 'en';
+    const weekKey       = getWeekKey(); // reuse from weekly insights
+
+    // Check cache
+    const row = await DB.get('SELECT * FROM user_memory WHERE user_id=? AND companion=?', req.user.id, companion);
+    if (row?.recap_week_key === weekKey && row?.recap_data) {
+      return res.json({ recap: JSON.parse(row.recap_data), isNew: false, weekKey });
+    }
+
+    // Need enough data to generate
+    const facts     = row ? JSON.parse(row.facts     || '[]') : [];
+    const timeline  = row ? JSON.parse(row.timeline  || '[]') : [];
+    const sessions  = row ? JSON.parse(row.session_summaries || '[]') : [];
+
+    // Get this week's messages count and mood
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
+    weekStart.setHours(0,0,0,0);
+    const msgRows = await DB.all(
+      'SELECT COUNT(*) as c FROM messages WHERE user_id=? AND companion=? AND created_at > ?',
+      req.user.id, companion, weekStart.toISOString()
+    );
+    const weekMsgs = Number(msgRows[0]?.c || 0);
+
+    // Get this week's mood average
+    const moodRows = await DB.all(
+      'SELECT mood, score FROM mood_logs WHERE user_id=? AND date_key >= ?',
+      req.user.id, weekStart.toISOString().slice(0,10)
+    );
+    const avgMood = moodRows.length
+      ? (moodRows.reduce((s,r) => s+r.score, 0) / moodRows.length).toFixed(1)
+      : null;
+
+    // Get missions completed this week
+    const missionRows = await DB.all(
+      'SELECT COUNT(*) as c FROM daily_missions WHERE user_id=? AND companion=? AND completed=1 AND date_key >= ?',
+      req.user.id, companion, weekStart.toISOString().slice(0,10)
+    );
+    const missionsCompleted = Number(missionRows[0]?.c || 0);
+
+    // Need at least some activity
+    if (weekMsgs < 2 && !moodRows.length) {
+      return res.json({ recap: null, isNew: false, weekKey });
+    }
+
+    if (!GROQ_KEY) return res.json({ recap: null, isNew: false, weekKey });
+
+    const recentSession = sessions.length ? sessions[sessions.length-1]?.summary : null;
+    const recentMilestone = timeline.length ? timeline[timeline.length-1]?.content : null;
+
+    const sys = lang === 'es'
+      ? `Eres ${companionName}. Genera una tarjeta de resumen semanal personal y cálida para ${req.user.name}.
+
+Datos de esta semana:
+- Mensajes intercambiados: ${weekMsgs}
+- Estado de ánimo promedio: ${avgMood ? `${avgMood}/5` : 'no registrado'}
+- Misiones completadas: ${missionsCompleted}
+- Última sesión: ${recentSession || 'ninguna registrada'}
+- Logro reciente: ${recentMilestone || 'ninguno'}
+
+Genera un JSON con este formato exacto (sin backticks ni texto extra):
+{
+  "headline": "frase corta y personal de 4-6 palabras que capture la semana",
+  "body": "2 oraciones cálidas sobre lo que observaste esta semana. Específico, no genérico.",
+  "highlight": "una cosa concreta que destacas de esta semana",
+  "nextWeek": "una cosa simple e intencional para la próxima semana"
+}`
+      : `You are ${companionName}. Generate a personal, warm weekly recap card for ${req.user.name}.
+
+This week's data:
+- Messages exchanged: ${weekMsgs}
+- Average mood: ${avgMood ? `${avgMood}/5` : 'not logged'}
+- Missions completed: ${missionsCompleted}
+- Last session: ${recentSession || 'none recorded'}
+- Recent milestone: ${recentMilestone || 'none'}
+
+Generate JSON in this exact format (no backticks or extra text):
+{
+  "headline": "short personal 4-6 word phrase capturing the week",
+  "body": "2 warm sentences about what you observed this week. Specific, not generic.",
+  "highlight": "one concrete thing that stood out this week",
+  "nextWeek": "one simple intentional thing for next week"
+}`;
+
+    const raw    = await groqChat(CHAT_MODELS, [{role:'user', content:'Generate the weekly recap now.'}], sys, 250);
+    const recap  = JSON.parse(raw.replace(/```json|```/g,'').trim());
+
+    // Add stats to recap
+    recap.stats = { weekMsgs, avgMood, missionsCompleted };
+
+    // Cache it
+    await DB.run(
+      `INSERT INTO user_memory (user_id,companion,recap_week_key,recap_data,updated_at) VALUES (?,?,?,?,?)
+       ON CONFLICT(user_id,companion) DO UPDATE SET recap_week_key=excluded.recap_week_key, recap_data=excluded.recap_data`,
+      req.user.id, companion, weekKey, JSON.stringify(recap), new Date().toISOString()
+    );
+
+    res.json({ recap, isNew: true, weekKey });
+  } catch (e) {
+    console.error('Recap error:', e.message);
+    res.json({ recap: null, isNew: false });
   }
 });
 

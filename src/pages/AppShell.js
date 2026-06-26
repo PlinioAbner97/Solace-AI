@@ -25,6 +25,7 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const [moodHistory, setMoodHistory] = useState([]);
   const [moodCalendar, setMoodCalendar] = useState(null);
   const [moodCalLoading, setMoodCalLoading] = useState(false);
+  const [weekRecap, setWeekRecap] = useState(null);
   const [shareCard, setShareCard] = useState(false);
   const canvasRef = useRef(null);
   const [mission, setMission] = useState(null);
@@ -94,7 +95,15 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   }, [view]);
 
   // Reset insight when companion changes so it reloads fresh
-  useEffect(() => { setInsight(null); }, [companion?.name]);
+  useEffect(() => { setInsight(null); setWeekRecap(null); }, [companion?.name]);
+
+  // Fetch weekly recap once per companion (background, non-blocking)
+  useEffect(() => {
+    if (!companion?.name) return;
+    api.getRecap(companion.name, companion.name, lang)
+      .then(({ recap }) => { if (recap) setWeekRecap(recap); })
+      .catch(() => {});
+  }, [companion?.name]);
 
   // Fetch today's daily mission per companion
   useEffect(() => {
@@ -733,6 +742,49 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                     </div>
                   );
                 })()}
+
+                {/* Weekly recap card */}
+                {weekRecap && (
+                  <div className="today-recap-card">
+                    <div className="today-recap-header">
+                      <div className="today-recap-icon">✦</div>
+                      <div>
+                        <div className="today-recap-label">{lang === 'es' ? 'Recap de la semana' : 'This week'}</div>
+                        <div className="today-recap-headline">"{weekRecap.headline}"</div>
+                      </div>
+                    </div>
+                    <div className="today-recap-body">{weekRecap.body}</div>
+                    {weekRecap.stats && (
+                      <div className="today-recap-stats">
+                        {weekRecap.stats.weekMsgs > 0 && (
+                          <span>💬 {weekRecap.stats.weekMsgs} {lang === 'es' ? 'mensajes' : 'messages'}</span>
+                        )}
+                        {weekRecap.stats.avgMood && (
+                          <span>🌊 {weekRecap.stats.avgMood}/5</span>
+                        )}
+                        {weekRecap.stats.missionsCompleted > 0 && (
+                          <span>◎ {weekRecap.stats.missionsCompleted} {lang === 'es' ? 'misiones' : 'missions'}</span>
+                        )}
+                      </div>
+                    )}
+                    {weekRecap.highlight && (
+                      <div className="today-recap-highlight">
+                        <span className="today-recap-highlight-label">
+                          {lang === 'es' ? '💡 Lo que destacó' : '💡 What stood out'}
+                        </span>
+                        <span>{weekRecap.highlight}</span>
+                      </div>
+                    )}
+                    {weekRecap.nextWeek && (
+                      <div className="today-recap-next">
+                        <span className="today-recap-next-label">
+                          {lang === 'es' ? '→ Para la próxima semana' : '→ Next week'}
+                        </span>
+                        <span>{weekRecap.nextWeek}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="today-quicknav">
                   {[

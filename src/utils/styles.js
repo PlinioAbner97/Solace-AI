@@ -1001,6 +1001,52 @@ export const globalCss = `
   .today-quicknav-icon { font-size: 18px; }
   .today-quicknav-label { font-size: 10px; color: var(--muted2); letter-spacing: .03em; }
 
+  /* ── WEEKLY RECAP CARD ── */
+  .today-recap-card {
+    background: linear-gradient(145deg, rgba(200,180,232,0.1), rgba(180,160,220,0.06));
+    border: 1px solid rgba(200,180,232,0.2); border-radius: 20px;
+    padding: 20px; backdrop-filter: blur(20px);
+    transition: all .5s var(--ease);
+    animation: fadeUp 0.7s 0.28s var(--ease-slow) both;
+    display: flex; flex-direction: column; gap: 13px;
+  }
+  .today-recap-header { display: flex; align-items: flex-start; gap: 12px; }
+  .today-recap-icon {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(200,180,232,0.15); border: 1px solid rgba(200,180,232,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: rgba(200,180,232,0.9);
+    animation: breathe 5s ease-in-out infinite;
+  }
+  .today-recap-label {
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: rgba(200,180,232,0.7); margin-bottom: 4px;
+  }
+  .today-recap-headline {
+    font-family: 'Cormorant Garamond', serif; font-size: 16px; font-style: italic;
+    font-weight: 300; color: var(--cream); line-height: 1.4;
+  }
+  .today-recap-body {
+    font-size: 13.5px; color: var(--muted2); line-height: 1.65; font-weight: 300;
+  }
+  .today-recap-stats {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    font-size: 12px; color: var(--muted2);
+  }
+  .today-recap-highlight {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 11px 14px; border-radius: 12px;
+    background: rgba(200,180,232,0.06); border: 1px solid rgba(200,180,232,0.12);
+  }
+  .today-recap-highlight-label { font-size: 10px; color: rgba(200,180,232,0.6); letter-spacing:.06em; }
+  .today-recap-highlight span:last-child { font-size: 13px; color: var(--cream); font-weight: 300; }
+  .today-recap-next {
+    display: flex; gap: 8px; align-items: baseline;
+    font-size: 12.5px; color: var(--muted2); font-weight: 300;
+    border-top: 1px solid rgba(200,180,232,0.1); padding-top: 11px;
+  }
+  .today-recap-next-label { color: rgba(200,180,232,0.6); font-size: 11px; flex-shrink: 0; }
+
   /* ── DAILY MISSION CARD ── */
   .mission-card {
     margin: 16px 28px 0;

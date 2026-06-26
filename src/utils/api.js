@@ -50,6 +50,8 @@ export const api = {
   logMood:       (mood, score, note) => call('/mood', 'POST', { mood, score, note }),
   getMoodStreak: ()                  => call('/mood/streak'),
   getMoodHistory: (lang)             => call(`/mood/history?lang=${lang||'en'}`),
+  getRecap: (companion, companionName, lang) =>
+    call(`/recap?companion=${encodeURIComponent(companion||'default')}&companionName=${encodeURIComponent(companionName||'')}&lang=${lang||'en'}`),
 
   summarizeSession: (companion, companionName, lang, messages) =>
     call('/summarize-session', 'POST', { companion, companionName, lang, messages }),

@@ -1,23 +1,23 @@
 export const FEMALE_COMPANIONS = [
-  { name: 'Luna',    emoji: '🌙', trait: 'gentle and deeply intuitive',       accent: '#e4e2dc' },
-  { name: 'Aria',    emoji: '🎵', trait: 'warm, creative and expressive',      accent: '#e8e6e0' },
-  { name: 'Sage',    emoji: '🌿', trait: 'wise, calm and grounding',           accent: '#e2e0da' },
-  { name: 'Nova',    emoji: '✨', trait: 'bright, curious and enthusiastic',   accent: '#ece9e2' },
-  { name: 'Cleo',    emoji: '🌺', trait: 'bold, confident and caring',         accent: '#e6e3dd' },
-  { name: 'Iris',    emoji: '🌈', trait: 'playful, empathetic and vibrant',    accent: '#e3e1db' },
-  { name: 'Ember',   emoji: '🔥', trait: 'passionate, fierce and loyal',       accent: '#e9e7e1' },
-  { name: 'Zara',    emoji: '⚡', trait: 'sharp, witty and adventurous',       accent: '#e0dedb' },
+  { name: 'Luna', vibe: ['rgba(180,190,232,0.06)', 'rgba(140,160,220,0.04)'],    emoji: '🌙', trait: 'gentle and deeply intuitive',       accent: '#e4e2dc' },
+  { name: 'Aria', vibe: ['rgba(232,180,210,0.06)', 'rgba(200,160,220,0.04)'],    emoji: '🎵', trait: 'warm, creative and expressive',      accent: '#e8e6e0' },
+  { name: 'Sage', vibe: ['rgba(160,200,170,0.06)', 'rgba(140,190,160,0.04)'],    emoji: '🌿', trait: 'wise, calm and grounding',           accent: '#e2e0da' },
+  { name: 'Nova', vibe: ['rgba(232,220,150,0.06)', 'rgba(220,200,140,0.04)'],    emoji: '✨', trait: 'bright, curious and enthusiastic',   accent: '#ece9e2' },
+  { name: 'Cleo', vibe: ['rgba(232,160,180,0.06)', 'rgba(210,140,170,0.04)'],    emoji: '🌺', trait: 'bold, confident and caring',         accent: '#e6e3dd' },
+  { name: 'Iris', vibe: ['rgba(180,200,232,0.06)', 'rgba(160,220,210,0.04)'],    emoji: '🌈', trait: 'playful, empathetic and vibrant',    accent: '#e3e1db' },
+  { name: 'Ember', vibe: ['rgba(232,160,120,0.07)', 'rgba(220,140,100,0.04)'],   emoji: '🔥', trait: 'passionate, fierce and loyal',       accent: '#e9e7e1' },
+  { name: 'Zara', vibe: ['rgba(220,220,150,0.06)', 'rgba(200,200,120,0.04)'],    emoji: '⚡', trait: 'sharp, witty and adventurous',       accent: '#e0dedb' },
 ];
 
 export const MALE_COMPANIONS = [
-  { name: 'Orion',   emoji: '🌌', trait: 'thoughtful, steady and wise',        accent: '#e1dfdc' },
-  { name: 'Kai',     emoji: '🌊', trait: 'calm, deep and understanding',       accent: '#e5e3de' },
-  { name: 'Ash',     emoji: '🍂', trait: 'grounded, warm and dependable',      accent: '#e7e4de' },
-  { name: 'Leo',     emoji: '🦁', trait: 'confident, protective and energetic',accent: '#eae8e1' },
-  { name: 'Theo',    emoji: '🌟', trait: 'gentle, thoughtful and encouraging', accent: '#e2e0db' },
-  { name: 'Remy',    emoji: '🎭', trait: 'charismatic, fun and deeply caring', accent: '#e6e4dd' },
-  { name: 'Finn',    emoji: '🏔️', trait: 'adventurous, honest and playful',   accent: '#e3e1da' },
-  { name: 'Atlas',   emoji: '🗺️', trait: 'curious, supportive and visionary', accent: '#e0ded9' },
+  { name: 'Orion', vibe: ['rgba(160,170,220,0.06)', 'rgba(120,140,200,0.04)'],   emoji: '🌌', trait: 'thoughtful, steady and wise',        accent: '#e1dfdc' },
+  { name: 'Kai', vibe: ['rgba(140,200,220,0.06)', 'rgba(120,190,210,0.04)'],     emoji: '🌊', trait: 'calm, deep and understanding',       accent: '#e5e3de' },
+  { name: 'Ash', vibe: ['rgba(200,180,150,0.06)', 'rgba(190,170,140,0.04)'],     emoji: '🍂', trait: 'grounded, warm and dependable',      accent: '#e7e4de' },
+  { name: 'Leo', vibe: ['rgba(232,200,140,0.06)', 'rgba(220,180,120,0.04)'],     emoji: '🦁', trait: 'confident, protective and energetic',accent: '#eae8e1' },
+  { name: 'Theo', vibe: ['rgba(200,220,180,0.05)', 'rgba(180,210,170,0.04)'],    emoji: '🌟', trait: 'gentle, thoughtful and encouraging', accent: '#e2e0db' },
+  { name: 'Remy', vibe: ['rgba(220,170,200,0.06)', 'rgba(200,150,190,0.04)'],    emoji: '🎭', trait: 'charismatic, fun and deeply caring', accent: '#e6e4dd' },
+  { name: 'Finn', vibe: ['rgba(160,210,190,0.06)', 'rgba(140,200,180,0.04)'],    emoji: '🏔️', trait: 'adventurous, honest and playful',   accent: '#e3e1da' },
+  { name: 'Atlas', vibe: ['rgba(180,180,232,0.06)', 'rgba(160,170,220,0.04)'],   emoji: '🗺️', trait: 'curious, supportive and visionary', accent: '#e0ded9' },
 ];
 
 export function pickRandomCompanion(gender) {

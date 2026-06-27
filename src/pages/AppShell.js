@@ -538,6 +538,24 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   return (
     <>
       <style>{globalCss}</style>
+      {companion?.vibe && (
+        <style>{`
+          .app-shell::before {
+            content: '';
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background:
+              radial-gradient(ellipse 70% 55% at 15% 10%, ${companion.vibe[0]}, transparent 65%),
+              radial-gradient(ellipse 55% 45% at 88% 85%, ${companion.vibe[1]}, transparent 60%);
+            animation: ambientShift 18s ease-in-out infinite alternate;
+          }
+          @keyframes ambientShift {
+            0%   { opacity: 0.7; transform: scale(1) translate(0,0); }
+            50%  { opacity: 1;   transform: scale(1.06) translate(-1%, 1%); }
+            100% { opacity: 0.8; transform: scale(1.02) translate(1%,-1%); }
+          }
+          .app-shell > * { position: relative; z-index: 1; }
+        `}</style>
+      )}
       <div className="app-shell">
 
         {/* SIDEBAR */}

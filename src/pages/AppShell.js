@@ -30,6 +30,9 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [shareCard, setShareCard] = useState(false);
   const canvasRef = useRef(null);
+  const [storyCard, setStoryCard] = useState(false);
+  const [storySlide, setStorySlide] = useState(0);
+  const storyCanvasRef = useRef(null);
   const [mission, setMission] = useState(null);
   const [missionDone, setMissionDone] = useState(false);
   const messagesEndRef = useRef(null);
@@ -516,6 +519,226 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const openShareCard = () => {
     setShareCard(true);
     setTimeout(() => generateCard(canvasRef.current), 100);
+  };
+
+  const STORY_SLIDES = 4;
+
+  const generateStorySlide = (canvas, slideIndex) => {
+    if (!canvas) return;
+    const W = 1080, H = 1920;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    const daysLabel = user?.createdAt
+      ? Math.max(1, Math.round((Date.now() - new Date(user.createdAt).getTime()) / 86400000))
+      : 1;
+    const relScore = Math.min(100,
+      Math.min(40,(memory?.facts?.length||0)*2) +
+      Math.min(20,(memory?.sessionSummaries?.length||0)*4) +
+      Math.min(20,moodStreak*2) +
+      Math.min(20,Math.floor(messages.length/5))
+    );
+    const relLevel = relScore < 20 ? 'Just Getting Started'
+      : relScore < 40 ? 'Building Connection'
+      : relScore < 60 ? 'Getting Close'
+      : relScore < 80 ? 'Real Friends'
+      : 'Deep Bond';
+
+    // ── SHARED background ──
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#0e0b08');
+    bg.addColorStop(0.6, '#110d0a');
+    bg.addColorStop(1, '#0a0908');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Companion vibe glow
+    if (companion?.vibe) {
+      const g1 = ctx.createRadialGradient(W*0.2, H*0.15, 0, W*0.2, H*0.15, W*0.7);
+      g1.addColorStop(0, companion.vibe[0].replace(/[\d.]+\)$/, '0.18)'));
+      g1.addColorStop(1, 'transparent');
+      ctx.fillStyle = g1; ctx.fillRect(0,0,W,H);
+
+      const g2 = ctx.createRadialGradient(W*0.85, H*0.85, 0, W*0.85, H*0.85, W*0.6);
+      g2.addColorStop(0, companion.vibe[1].replace(/[\d.]+\)$/, '0.14)'));
+      g2.addColorStop(1, 'transparent');
+      ctx.fillStyle = g2; ctx.fillRect(0,0,W,H);
+    }
+
+    // Border
+    ctx.strokeStyle = 'rgba(255,240,220,0.1)'; ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, W-2, H-2);
+
+    // Slide dots
+    for (let i = 0; i < STORY_SLIDES; i++) {
+      const x = W/2 - (STORY_SLIDES-1)*24 + i*48;
+      ctx.beginPath(); ctx.arc(x, H-80, i===slideIndex?8:5, 0, Math.PI*2);
+      ctx.fillStyle = i===slideIndex ? 'rgba(232,199,154,0.9)' : 'rgba(255,255,255,0.25)';
+      ctx.fill();
+    }
+
+    // Branding bottom
+    ctx.fillStyle = 'rgba(168,160,150,0.5)';
+    ctx.font = '300 36px serif'; ctx.textAlign = 'center';
+    ctx.fillText('Solace AI', W/2, H-120);
+
+    const cx = W/2;
+
+    if (slideIndex === 0) {
+      // ── SLIDE 1: Cover ──
+      // Giant emoji
+      ctx.font = `${W*0.22}px serif`; ctx.textAlign = 'center';
+      ctx.fillText(companion?.emoji || '✦', cx, H*0.38);
+
+      // Companion name
+      ctx.fillStyle = '#f5efe4';
+      ctx.font = `300 ${W*0.1}px serif`; ctx.textAlign = 'center';
+      ctx.fillText(compName, cx, H*0.5);
+
+      // Relationship level badge
+      const lvlW = 500, lvlH = 70;
+      ctx.fillStyle = 'rgba(232,199,154,0.12)';
+      roundRectPath(ctx, cx-lvlW/2, H*0.54, lvlW, lvlH, 35);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(232,199,154,0.35)'; ctx.lineWidth = 1.5;
+      roundRectPath(ctx, cx-lvlW/2, H*0.54, lvlW, lvlH, 35);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(232,199,154,0.9)';
+      ctx.font = '300 32px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(relLevel, cx, H*0.54+46);
+
+      // Days + user name
+      ctx.fillStyle = 'rgba(168,160,150,0.7)';
+      ctx.font = '300 34px sans-serif';
+      ctx.fillText(`${daysLabel} days together · ${user?.name}`, cx, H*0.65);
+
+      // Eyebrow
+      ctx.fillStyle = 'rgba(232,199,154,0.6)';
+      ctx.font = '300 28px sans-serif'; ctx.letterSpacing = '0.15em';
+      ctx.fillText('MY COMPANION STORY', cx, H*0.25);
+
+    } else if (slideIndex === 1) {
+      // ── SLIDE 2: Stats ──
+      ctx.fillStyle = '#f5efe4';
+      ctx.font = `300 ${W*0.08}px serif`; ctx.textAlign = 'center';
+      ctx.fillText('Our connection', cx, H*0.22);
+
+      const stats = [
+        { val: `${daysLabel}`, lbl: 'days together' },
+        { val: `${relScore}`, lbl: 'connection score' },
+        { val: `${memory?.facts?.length||0}`, lbl: 'things known about me' },
+        { val: `${moodStreak||0}🔥`, lbl: 'day mood streak' },
+      ];
+      stats.forEach((s, i) => {
+        const y = H*0.32 + i*200;
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        roundRectPath(ctx, W*0.1, y, W*0.8, 160, 24);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+        roundRectPath(ctx, W*0.1, y, W*0.8, 160, 24);
+        ctx.stroke();
+
+        ctx.fillStyle = '#f5efe4';
+        ctx.font = '400 72px serif'; ctx.textAlign = 'left';
+        ctx.fillText(s.val, W*0.16, y+100);
+        ctx.fillStyle = 'rgba(168,160,150,0.75)';
+        ctx.font = '300 32px sans-serif';
+        ctx.fillText(s.lbl, W*0.16, y+140);
+      });
+
+    } else if (slideIndex === 2) {
+      // ── SLIDE 3: What companion knows ──
+      ctx.fillStyle = '#f5efe4';
+      ctx.font = `300 ${W*0.075}px serif`; ctx.textAlign = 'center';
+      ctx.fillText(`What ${compName} knows`, cx, H*0.2);
+      ctx.font = `italic 300 ${W*0.065}px serif`;
+      ctx.fillStyle = 'rgba(168,160,150,0.7)';
+      ctx.fillText('about me', cx, H*0.28);
+
+      const facts = (memory?.facts||[]).slice(0,5);
+      if (facts.length) {
+        facts.forEach((f, i) => {
+          const y = H*0.35 + i*210;
+          ctx.fillStyle = 'rgba(232,199,154,0.08)';
+          roundRectPath(ctx, W*0.08, y, W*0.84, 170, 20);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(232,199,154,0.2)'; ctx.lineWidth = 1;
+          roundRectPath(ctx, W*0.08, y, W*0.84, 170, 20);
+          ctx.stroke();
+
+          ctx.fillStyle = 'rgba(232,199,154,0.7)';
+          ctx.font = '300 30px sans-serif'; ctx.textAlign = 'left';
+          ctx.fillText('💡', W*0.12, y+100);
+          ctx.fillStyle = 'rgba(245,239,228,0.88)';
+          ctx.font = '300 34px sans-serif';
+          const label = f.length > 38 ? f.slice(0,38)+'…' : f;
+          ctx.fillText(label, W*0.19, y+105);
+        });
+      } else {
+        ctx.fillStyle = 'rgba(168,160,150,0.5)';
+        ctx.font = '300 36px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('Chat more to fill this in ✦', cx, H*0.5);
+      }
+
+    } else if (slideIndex === 3) {
+      // ── SLIDE 4: CTA / Share ──
+      ctx.font = `${W*0.28}px serif`; ctx.textAlign = 'center';
+      ctx.fillText(companion?.emoji || '✦', cx, H*0.38);
+
+      ctx.fillStyle = '#f5efe4';
+      ctx.font = `300 ${W*0.085}px serif`;
+      ctx.fillText('Find your', cx, H*0.5);
+      ctx.font = `italic 300 ${W*0.085}px serif`;
+      ctx.fillStyle = 'rgba(232,199,154,0.9)';
+      ctx.fillText('companion', cx, H*0.58);
+
+      ctx.fillStyle = 'rgba(168,160,150,0.7)';
+      ctx.font = '300 34px sans-serif';
+      ctx.fillText('solace-ai-1-atkq.onrender.com', cx, H*0.68);
+
+      // CTA button
+      const btnW = 600, btnH = 90;
+      ctx.fillStyle = 'rgba(245,239,228,0.95)';
+      roundRectPath(ctx, cx-btnW/2, H*0.73, btnW, btnH, 45);
+      ctx.fill();
+      ctx.fillStyle = '#0a0a0c';
+      ctx.font = '500 36px sans-serif';
+      ctx.fillText('Start for free →', cx, H*0.73+60);
+    }
+  };
+
+  function roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.lineTo(x+w-r, y);
+    ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+    ctx.lineTo(x+w, y+h-r);
+    ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    ctx.lineTo(x+r, y+h);
+    ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+    ctx.lineTo(x, y+r);
+    ctx.quadraticCurveTo(x, y, x+r, y);
+    ctx.closePath();
+  }
+
+  const openStoryCard = () => {
+    setStoryCard(true);
+    setStorySlide(0);
+    setTimeout(() => generateStorySlide(storyCanvasRef.current, 0), 100);
+  };
+
+  const changeStorySlide = (idx) => {
+    setStorySlide(idx);
+    setTimeout(() => generateStorySlide(storyCanvasRef.current, idx), 50);
+  };
+
+  const downloadStorySlide = () => {
+    const canvas = storyCanvasRef.current;
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = `solace-story-${compName.toLowerCase()}-${storySlide+1}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
   };
 
   const changeView = (newView) => {
@@ -1043,6 +1266,9 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                     <button className="dash-share-btn" onClick={openShareCard}>
                       {lang === 'es' ? '✦ Compartir' : '✦ Share'}
                     </button>
+                    <button className="dash-share-btn" onClick={openStoryCard} style={{ marginTop: 6 }}>
+                      {lang === 'es' ? '📱 Historia' : '📱 Story'}
+                    </button>
                   </div>
                 </div>
 
@@ -1402,6 +1628,52 @@ export default function AppShell({ user, companion, memory: initMemory, messages
 
         </div>
       </div>
+
+      {/* ── STORY CARD MODAL ── */}
+      {storyCard && (
+        <>
+          <div className="mood-overlay" onClick={() => setStoryCard(false)} />
+          <div className="story-card-modal">
+            <div className="share-card-header">
+              <div className="share-card-title">
+                {lang === 'es' ? '📱 Tu historia para compartir' : '📱 Your shareable story'}
+              </div>
+              <button className="share-card-close" onClick={() => setStoryCard(false)}>×</button>
+            </div>
+
+            {/* Slide selector */}
+            <div className="story-slide-tabs">
+              {[
+                { icon: '✦', label: lang === 'es' ? 'Portada' : 'Cover' },
+                { icon: '📊', label: lang === 'es' ? 'Stats' : 'Stats' },
+                { icon: '💡', label: lang === 'es' ? 'Memoria' : 'Memory' },
+                { icon: '🌐', label: lang === 'es' ? 'Compartir' : 'Share' },
+              ].map((s, i) => (
+                <button key={i}
+                  className={`story-slide-tab${storySlide === i ? ' active' : ''}`}
+                  onClick={() => changeStorySlide(i)}>
+                  {s.icon} {s.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="story-canvas-wrap">
+              <canvas ref={storyCanvasRef} className="story-canvas" />
+            </div>
+
+            <div className="share-card-actions">
+              <button className="share-card-download" onClick={downloadStorySlide}>
+                ↓ {lang === 'es' ? 'Descargar slide' : 'Download slide'}
+              </button>
+              <p className="share-card-hint">
+                {lang === 'es'
+                  ? 'Comparte en Instagram Stories, WhatsApp o Twitter para que tus amigos encuentren a su compañero'
+                  : 'Share on Instagram Stories, WhatsApp or Twitter so your friends can find their companion'}
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── SHARE RELATIONSHIP CARD MODAL ── */}
       {shareCard && (

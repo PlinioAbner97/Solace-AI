@@ -754,6 +754,44 @@ export const globalCss = `
     font-family: 'Inter', sans-serif; font-size: 13.5px; cursor: pointer;
   }
 
+  /* ── STORY CARD MODAL ── */
+  .story-card-modal {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    z-index: 96; width: min(560px, 95vw);
+    background: rgba(14,12,10,0.92);
+    backdrop-filter: blur(40px) saturate(160%);
+    -webkit-backdrop-filter: blur(40px) saturate(160%);
+    border: 1px solid var(--border2); border-radius: 28px;
+    padding: 24px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset, 0 40px 100px rgba(0,0,0,0.7);
+    animation: scaleIn 0.45s var(--ease-slow);
+    max-height: 95vh; overflow-y: auto;
+  }
+  .story-slide-tabs {
+    display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .story-slide-tab {
+    padding: 7px 14px; border-radius: 100px; font-size: 12px;
+    border: 1px solid var(--border); background: var(--glass);
+    color: var(--muted2); cursor: pointer; transition: all .3s var(--ease);
+    font-family: 'Inter', sans-serif;
+  }
+  .story-slide-tab.active {
+    border-color: var(--warm-dim); background: rgba(232,199,154,0.12);
+    color: var(--warm);
+  }
+  .story-canvas-wrap {
+    border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    /* Portrait aspect ratio — 9:16 */
+    aspect-ratio: 9/16; max-height: 50vh; display: flex; align-items: center;
+    background: #0e0b08;
+  }
+  .story-canvas {
+    width: 100%; height: 100%; object-fit: contain; display: block;
+  }
+
   /* ── SHARE RELATIONSHIP CARD MODAL ── */
   .share-card-modal {
     position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
@@ -1699,6 +1737,13 @@ export const globalCss = `
       animation: sheetUp 0.45s var(--ease-slow);
       max-height: 90vh; overflow-y: auto;
     }
+    .story-card-modal {
+      left: 0; top: auto; bottom: 0; transform: none;
+      width: 100%; border-radius: 28px 28px 0 0;
+      animation: sheetUp 0.45s var(--ease-slow);
+      max-height: 92vh; overflow-y: auto;
+    }
+    .story-canvas-wrap { max-height: 45vh; }
     .insight-card { padding: 20px; margin-bottom: 20px; border-radius: 18px; }
     .insight-q-text { font-size: 16px; }
 

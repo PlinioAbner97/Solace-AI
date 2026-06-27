@@ -1165,6 +1165,38 @@ export const globalCss = `
   .t-dot { width:6px; height:6px; border-radius:50%; background: rgba(232,180,150,0.7); animation:bounce 1.4s infinite; }
   .t-dot:nth-child(2){animation-delay:.2s;} .t-dot:nth-child(3){animation-delay:.4s;}
 
+  /* ── SMART REPLY SUGGESTIONS ── */
+  .suggestions-bar {
+    padding: 10px 28px 8px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+    background: rgba(255,255,255,0.01); border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .suggestions-loading {
+    display: flex; gap: 5px; align-items: center; padding: 6px 0;
+  }
+  .suggestion-chip {
+    padding: 8px 16px; border-radius: 100px;
+    border: 1px solid var(--border2);
+    background: var(--glass); backdrop-filter: blur(16px);
+    color: var(--cream); font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 300; cursor: pointer;
+    transition: all .35s var(--ease);
+    opacity: 0; transform: translateY(6px);
+    animation: chipIn 0.4s var(--ease-slow) forwards;
+    white-space: nowrap;
+  }
+  .suggestion-chip:hover {
+    border-color: var(--warm-dim);
+    background: rgba(232,199,154,0.1);
+    transform: translateY(-2px);
+  }
+  .suggestion-chip:active { transform: scale(0.96); }
+  @keyframes chipIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
   .input-area { padding:16px 28px 22px; border-top:1px solid var(--border); background: rgba(255,255,255,0.015); backdrop-filter: blur(20px); flex-shrink:0; }
   .input-row { display:flex; gap:10px; align-items:flex-end; }
   .msg-input {
@@ -1617,6 +1649,8 @@ export const globalCss = `
     .welcome-icon { font-size: 38px; }
     .welcome-title { font-size: 26px; }
 
+    .suggestions-bar { padding: 8px 12px 6px; gap: 6px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+    .suggestion-chip { font-size: 12.5px; padding: 7px 13px; flex-shrink: 0; }
     .msg-input { font-size: 16px; padding: 11px 14px; min-height: 44px; }
     .send-btn { width: 44px; height: 44px; font-size: 18px; }
     .input-hint { display: none; }

@@ -26,6 +26,8 @@ export default function AppShell({ user, companion, memory: initMemory, messages
   const [moodCalendar, setMoodCalendar] = useState(null);
   const [moodCalLoading, setMoodCalLoading] = useState(false);
   const [weekRecap, setWeekRecap] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [shareCard, setShareCard] = useState(false);
   const canvasRef = useRef(null);
   const [mission, setMission] = useState(null);
@@ -158,6 +160,14 @@ export default function AppShell({ user, companion, memory: initMemory, messages
       setMessages(final);
 
       api.saveMessage('assistant', reply, companion?.name).catch(e => console.warn('Save ai msg failed:', e.message));
+
+      // Generate smart reply suggestions in background
+      setSuggestions([]);
+      setSuggestionsLoading(true);
+      api.getSuggestions(reply, final.slice(-8), companion?.name, lang, mode)
+        .then(({ suggestions: s }) => setSuggestions(s || []))
+        .catch(() => setSuggestions([]))
+        .finally(() => setSuggestionsLoading(false));
 
       extractAndSaveMemory(userMsg.content);
 
@@ -908,11 +918,34 @@ export default function AppShell({ user, companion, memory: initMemory, messages
                 <div ref={messagesEndRef} />
               </div>
 
+              {/* Smart reply suggestions */}
+              {(suggestions.length > 0 || suggestionsLoading) && !input && (
+                <div className="suggestions-bar">
+                  {suggestionsLoading && !suggestions.length ? (
+                    <div className="suggestions-loading">
+                      <div className="t-dot"/><div className="t-dot"/><div className="t-dot"/>
+                    </div>
+                  ) : (
+                    suggestions.map((s, i) => (
+                      <button key={i} className="suggestion-chip"
+                        style={{ animationDelay: `${i * 0.06}s` }}
+                        onClick={() => {
+                          setInput(s);
+                          setSuggestions([]);
+                          setTimeout(() => inputRef.current?.focus(), 50);
+                        }}>
+                        {s}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+
               <div className="input-area">
                 <div className="input-row">
                   <textarea ref={inputRef} className="msg-input"
                     placeholder={`${t('chat_talkTo')} ${compName}…`}
-                    value={input} onChange={e => setInput(e.target.value)}
+                    value={input} onChange={e => { setInput(e.target.value); if (e.target.value) setSuggestions([]); }}
                     onKeyDown={onKeyDown} rows={1} />
                   <button className="send-btn" onClick={sendMessage} disabled={sending || !input.trim()}>
                     ↑

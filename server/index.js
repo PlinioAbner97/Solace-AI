@@ -1031,6 +1031,63 @@ Generate JSON in this exact format (no backticks or extra text):
   }
 });
 
+// ── SMART REPLY SUGGESTIONS ───────────────────────────────────────────────────
+// Generates 3 short, contextual reply suggestions after each companion message.
+// Called client-side after each AI response. Returns quickly using a small model.
+app.post('/api/suggestions', auth, async (req, res) => {
+  try {
+    const { lastAiMessage, recentHistory, companionName, lang, mode } = req.body;
+    if (!lastAiMessage || !GROQ_KEY) return res.json({ suggestions: [] });
+
+    const es = lang === 'es';
+    const historyStr = (recentHistory || []).slice(-6)
+      .map(m => `${m.role === 'user' ? 'User' : companionName}: ${m.content}`)
+      .join('\n');
+
+    const modeContext = {
+      friend:  es ? 'conversación casual y cálida' : 'casual warm conversation',
+      coach:   es ? 'reflexión sobre metas y crecimiento' : 'goal-focused reflection',
+      deep:    es ? 'exploración filosófica y profunda' : 'deep philosophical exploration',
+      support: es ? 'apoyo emocional y escucha' : 'emotional support and listening',
+    }[mode] || (es ? 'conversación amigable' : 'friendly conversation');
+
+    const sys = es
+      ? `Genera exactamente 3 respuestas cortas que el USUARIO podría enviar después de este mensaje del compañero.
+Contexto: ${modeContext}
+Reglas:
+- Cada respuesta: 2-8 palabras máximo
+- Variadas: una reflexiva, una que pide más, una emocional/personal
+- Naturales, como escribiría una persona real en chat
+- En español, tono casual
+- NO incluyas números, guiones ni explicaciones
+Responde SOLO con JSON: {"suggestions":["respuesta1","respuesta2","respuesta3"]}`
+      : `Generate exactly 3 short replies the USER might send after this companion message.
+Context: ${modeContext}
+Rules:
+- Each reply: 2-8 words max
+- Varied: one reflective, one asking for more, one emotional/personal
+- Natural, like a real person texting
+- Do NOT number them or add explanations
+Reply with ONLY JSON: {"suggestions":["reply1","reply2","reply3"]}`;
+
+    const prompt = `Recent conversation:\n${historyStr}\n\n${companionName} just said: "${lastAiMessage.slice(0, 300)}"`;
+
+    const raw  = await groqChat(EXTRACT_MODELS,
+      [{role:'user', content: prompt}], sys, 120);
+    const data = JSON.parse(raw.replace(/```json|```/g,'').trim());
+
+    const suggestions = (data.suggestions || [])
+      .filter(s => typeof s === 'string' && s.trim())
+      .slice(0, 3)
+      .map(s => s.replace(/^["']|["']$/g, '').trim());
+
+    res.json({ suggestions });
+  } catch (e) {
+    console.error('Suggestions error:', e.message);
+    res.json({ suggestions: [] });
+  }
+});
+
 // ── START ─────────────────────────────────────────────────────────────────────
 initDB().then(store => {
   DB = makeDB(store);

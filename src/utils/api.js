@@ -53,6 +53,9 @@ export const api = {
   getRecap: (companion, companionName, lang) =>
     call(`/recap?companion=${encodeURIComponent(companion||'default')}&companionName=${encodeURIComponent(companionName||'')}&lang=${lang||'en'}`),
 
+  getSuggestions: (lastAiMessage, recentHistory, companionName, lang, mode) =>
+    call('/suggestions', 'POST', { lastAiMessage, recentHistory, companionName, lang, mode }),
+
   summarizeSession: (companion, companionName, lang, messages) =>
     call('/summarize-session', 'POST', { companion, companionName, lang, messages }),
 

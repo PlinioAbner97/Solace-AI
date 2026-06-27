@@ -2,7 +2,7 @@
   "name": "Solace AI",
   "short_name": "Solace",
   "description": "Your AI companion that grows with you",
-  "start_url": "/app",
+  "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0c0a09",

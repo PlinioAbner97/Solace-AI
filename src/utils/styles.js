@@ -1632,35 +1632,56 @@ export const globalCss = `
 
     .app-shell { flex-direction: column; height: 100dvh; }
 
+    /* Fix: content must not go under iPhone status bar */
+    .main-area {
+      order: 1;
+      height: 100dvh;
+      padding-bottom: 0;
+      padding-top: env(safe-area-inset-top);
+    }
+
     .sidebar {
       display: flex; flex-direction: column; width: 100%; min-width: 100%;
       height: auto; order: 2; border-right: none; border-top: 1px solid var(--border);
       padding: 0; position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
-      background: rgba(14,14,16,0.75);
+      background: rgba(14,14,16,0.85);
       backdrop-filter: blur(30px) saturate(160%);
       -webkit-backdrop-filter: blur(30px) saturate(160%);
-      box-shadow: 0 -10px 40px rgba(0,0,0,0.35);
+      box-shadow: 0 -8px 30px rgba(0,0,0,0.4);
     }
     .sb-top, .sb-companion, .sb-stats { display: none; }
     .sb-bottom-desktop { display: none; }
-    .lang-switch-sidebar { display: none; } /* already in the bottom sheet menu */
+    .lang-switch-sidebar { display: none; }
     .sb-nav {
-      flex: 1; display: flex; flex-direction: row; padding: 6px 4px;
-      padding-bottom: max(6px, env(safe-area-inset-bottom));
+      flex: 1; display: flex; flex-direction: row;
+      padding: 8px 2px 0;
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
       overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
     }
     .sb-section { display: none; }
-    .sb-item { flex-direction: column; gap: 4px; flex: 1; min-width: 70px; padding: 9px 4px; font-size: 10.5px; text-align: center; white-space: nowrap; }
-    .sb-icon { font-size: 19px; width: auto; }
+    .sb-item {
+      flex-direction: column; gap: 3px; flex: 1;
+      min-width: 0; /* allow shrinking */
+      padding: 6px 2px;
+      font-size: 9px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .sb-icon { font-size: 18px; width: auto; display: block; }
 
-    .main-area { order: 1; height: 100dvh; padding-bottom: 0; }
     .chat-view { height: 100%; display: flex; flex-direction: column; padding-bottom: 0; }
     .msgs-area { flex: 1; overflow-y: auto; min-height: 0; padding: 16px; }
     .input-area {
       padding: 10px 12px 12px;
-      margin-bottom: calc(60px + env(safe-area-inset-bottom));
+      /* Exact height: tab bar ~52px + safe area */
+      margin-bottom: calc(52px + env(safe-area-inset-bottom));
       flex-shrink: 0;
     }
+    .inner-view { padding: 16px 16px calc(72px + env(safe-area-inset-bottom)); }
+    .today-view { padding: 16px 16px calc(72px + env(safe-area-inset-bottom)); gap: 13px; }
+    .dashboard { padding: 16px 16px calc(72px + env(safe-area-inset-bottom)); gap: 14px; }
+    .wellbeing-view { padding: 16px 16px calc(72px + env(safe-area-inset-bottom)); }
 
     .menu-trigger { display: flex; }
     .menu-overlay { display: block; }
@@ -1693,9 +1714,6 @@ export const globalCss = `
     .send-btn { width: 44px; height: 44px; font-size: 18px; }
     .input-hint { display: none; }
 
-    .inner-view { padding: 20px 16px calc(80px + env(safe-area-inset-bottom)); }
-
-    .today-view { padding: 24px 16px calc(80px + env(safe-area-inset-bottom)); gap: 13px; }
     .today-name { font-size: 30px; }
     .today-stats { gap: 8px; }
     .today-stat { padding: 12px 6px; border-radius: 14px; }
@@ -1707,8 +1725,6 @@ export const globalCss = `
     .today-comp-name { font-size: 18px; }
     .today-mission { border-radius: 18px; padding: 16px; }
     .today-mission-text { font-size: 15.5px; }
-
-    .dashboard { padding: 16px 16px calc(80px + env(safe-area-inset-bottom)); gap: 14px; }
 
     .wb-cal-grid { grid-template-columns: repeat(6, 1fr); gap: 4px; }
     .wb-cal-cell { border-radius: 6px; }

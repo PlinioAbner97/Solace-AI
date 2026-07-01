@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { api } from './utils/api';
 import { globalCss } from './utils/styles';
 import { useLanguage } from './utils/LanguageContext';
+import { FEMALE_COMPANIONS, MALE_COMPANIONS } from './utils/companions';
 import Home from './pages/Home';
 import Auth from './pages/Auth';
 import PickCompanion from './pages/PickCompanion';
@@ -37,13 +38,13 @@ export default function App() {
 
         // Restore companion from saved profile
         if (mem?.profile?.companionName) {
-          setCompanion({
+          setCompanion(withVibe({
             name:   mem.profile.companionName,
             gender: mem.profile.companionGender,
             emoji:  mem.profile.companionEmoji,
             trait:  mem.profile.companionTrait,
             accent: mem.profile.companionAccent,
-          });
+          }));
         }
 
         setStatus('auth');
@@ -67,13 +68,13 @@ export default function App() {
       setMessages(msgs);
       setProfileForm(mem.profile || {});
       if (mem?.profile?.companionName) {
-        setCompanion({
+        setCompanion(withVibe({
           name:   mem.profile.companionName,
           gender: mem.profile.companionGender,
           emoji:  mem.profile.companionEmoji,
           trait:  mem.profile.companionTrait,
           accent: mem.profile.companionAccent,
-        });
+        }));
       }
     } catch(e) {
       console.warn('Failed to load user data after login:', e.message);
@@ -81,7 +82,7 @@ export default function App() {
   };
 
   const handleCompanionPicked = async (comp, gender) => {
-    setCompanion({ ...comp, gender });
+    setCompanion(withVibe({ ...comp, gender }));
     // Load THIS companion's own isolated memory and messages
     try {
       const mem  = await api.getMemory(comp.name);
@@ -118,6 +119,14 @@ export default function App() {
 
   const handleChangeCompanion = () => {
     setCompanion(null);
+  };
+
+  // Enrich companion object with vibe from master list (vibe isn't stored in DB)
+  const withVibe = (comp) => {
+    if (!comp) return comp;
+    const all = [...FEMALE_COMPANIONS, ...MALE_COMPANIONS];
+    const master = all.find(c => c.name === comp.name);
+    return master ? { ...comp, vibe: master.vibe } : comp;
   };
 
   const { lang } = useLanguage();
